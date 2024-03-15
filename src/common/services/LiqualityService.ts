@@ -1,3 +1,4 @@
+import * as bitcoin from 'bitcoinjs-lib';
 import {
   BtcAccount,
   LiqualityError,
@@ -7,8 +8,8 @@ import {
   WalletAddress,
   WindowBitcoinProvider,
   LiqualityGetNetworkResponse,
+  Step,
 } from '@/common/types';
-import * as bitcoin from 'bitcoinjs-lib';
 import { WalletService } from '@/common/services/index';
 import * as constants from '@/common/store/constants';
 import { EnvironmentAccessorService } from '@/common/services/enviroment-accessor.service';
@@ -23,19 +24,52 @@ export default class LiqualityService extends WalletService {
     }
   }
 
+  // eslint-disable-next-line class-methods-use-this
+  name(): string {
+    return constants.WALLET_NAMES.LIQUALITY.short_name;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  public availableAccounts(): BtcAccount[] {
+    return [
+      constants.BITCOIN_NATIVE_SEGWIT_ADDRESS,
+    ];
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  confirmationSteps(): Step[] {
+    return [
+      {
+        title: 'Transaction information',
+        subtitle: '',
+        outputsToshow: {
+          opReturn: {
+            value: false,
+            amount: true,
+          },
+          change: {
+            address: false,
+            amount: true,
+          },
+          federation: {
+            address: true,
+            amount: true,
+          },
+        },
+        fee: true,
+      },
+    ];
+  }
+
   private enable(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      try {
-        this.bitcoinProvider = window.bitcoin;
-        this.bitcoinProvider.enable()
-          .then(() => {
-            resolve();
-          }, () => {
-            reject(LiqualityService.deniedOrPopUpClosed());
-          });
-      } catch (e) {
-        reject(new LiqualityError());
-      }
+      this.bitcoinProvider = window.bitcoin;
+      this.bitcoinProvider.enable()
+        .then(() => {
+          resolve();
+        }, () => {
+          reject(LiqualityService.deniedOrPopUpClosed());
+        });
     });
   }
 

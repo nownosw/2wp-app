@@ -1,9 +1,9 @@
+import axios from 'axios';
+import sinon from 'sinon';
 import { EnvironmentAccessorService } from '@/common/services/enviroment-accessor.service';
 import * as constants from '@/common/store/constants';
 import { SatoshiBig } from '@/common/types';
 import BalanceService from '@/pegin/services/BalanceService';
-import axios from 'axios';
-import sinon from 'sinon';
 
 const API_URL = 'https://api.url';
 
@@ -35,6 +35,7 @@ describe('Balance Service', () => {
         derivationPath: '',
         publicKey: '',
       }];
+
     const segwitAddresses = [
       {
         address: '2NC4DCae9HdL6vjWMDbQwTkYEAB22MF3TPs',
@@ -46,6 +47,7 @@ describe('Balance Service', () => {
         derivationPath: '',
         publicKey: '',
       }];
+
     const nativeSegwitAddresses = [
       {
         address: 'tb1qtanvhhl8ve32tcdxkrsamyy6vq5p62ctdv89l0',
@@ -57,36 +59,44 @@ describe('Balance Service', () => {
         derivationPath: '',
         publicKey: '',
       }];
-    const addresses = [...legacyAddresses, ...segwitAddresses, ...nativeSegwitAddresses];
 
+    const addresses = [...legacyAddresses, ...segwitAddresses, ...nativeSegwitAddresses];
     const legacyApiResponse = {
       data: [{
         txid: '',
         vout: 0,
-        value: '500000',
+        satoshis: 500000,
+        address: 'tb1qtanvhhl8ve32tcdxkrsamyy6vq5p62ctdv89l0',
         confirmations: 0,
       },
       {
         txid: '',
         vout: 0,
-        value: '400000',
+        satoshis: 400000,
+        address: 'tb1qtanvhhl8ve32tcdxkrsamyy6vq5p62ctdv89l0',
         confirmations: 0,
       }],
     };
+
     const segwitApiResponse = { data: [] };
     const nativeSegwitApiResponse = { data: [] };
 
     axiosMock.post.withArgs(`${API_URL}/utxo`, { addressList: legacyAddresses.map(({ address }) => address) })
-      .resolves(legacyApiResponse);
+      .resolves({ data: { ...legacyApiResponse } });
     axiosMock.post.withArgs(`${API_URL}/utxo`, { addressList: segwitAddresses.map(({ address }) => address) })
-      .resolves(segwitApiResponse);
+      .resolves({ data: { ...segwitApiResponse } });
     axiosMock.post.withArgs(`${API_URL}/utxo`, { addressList: nativeSegwitAddresses.map(({ address }) => address) })
-      .resolves(nativeSegwitApiResponse);
+      .resolves({ data: { ...nativeSegwitApiResponse } });
 
     const balances = {
       legacy: {
         balance: new SatoshiBig('900000', 'satoshi'),
-        utxos: legacyApiResponse.data,
+        utxos: legacyApiResponse.data.map((u) => ({
+          txid: u.txid,
+          vout: u.vout,
+          amount: u.satoshis,
+          address: u.address,
+        })),
       },
       segwit: {
         balance: new SatoshiBig('0', 'satoshi'),
@@ -97,6 +107,7 @@ describe('Balance Service', () => {
         utxos: nativeSegwitApiResponse.data,
       },
     };
+
     expect(BalanceService.getBalances(addresses))
       .resolves
       .toEqual(balances);

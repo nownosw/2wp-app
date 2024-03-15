@@ -1,4 +1,5 @@
 import SatoshiBig from '@/common/types/SatoshiBig';
+import { Utxo } from '@/common/types/pegInTx';
 
 export interface Tx {
   coin: string;
@@ -13,8 +14,6 @@ export interface NormalizedInput {
   // eslint-disable-next-line camelcase
   prev_hash: string;
   amount: string;
-  // eslint-disable-next-line camelcase
-  address_n: number[];
   // eslint-disable-next-line camelcase
   prev_index: number;
   // eslint-disable-next-line camelcase
@@ -46,7 +45,7 @@ export interface AccountBalance {
 }
 
 export interface Fee {
-  amount: number | SatoshiBig;
+  amount: SatoshiBig;
   enoughBalance: boolean;
 }
 export interface FeeAmountDataResponse {
@@ -55,10 +54,12 @@ export interface FeeAmountDataResponse {
   fast: Fee;
 }
 
+interface UtxoList { selectedUtxoList: Utxo[]}
+
 export interface FeeAmountData {
-  slow: { amount: SatoshiBig, enoughBalance: boolean };
-  average: { amount: SatoshiBig, enoughBalance: boolean };
-  fast: { amount: SatoshiBig, enoughBalance: boolean };
+  slow: Fee & UtxoList;
+  average: Fee & UtxoList;
+  fast: Fee & UtxoList;
 }
 
 export interface TxData {

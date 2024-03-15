@@ -1,9 +1,16 @@
-export const WALLET_LEDGER = 'WALLET_LEDGER';
-export const WALLET_TREZOR = 'WALLET_TREZOR';
-export const WALLET_LIQUALITY = 'WALLET_LIQUALITY';
+export const WALLET_NAMES = {
+  LEDGER: { formal_name: 'Ledger', short_name: 'ledger', long_name: 'WALLET_LEDGER' },
+  TREZOR: { formal_name: 'Trezor', short_name: 'trezor', long_name: 'WALLET_TREZOR' },
+  LIQUALITY: { formal_name: 'Liquality', short_name: 'liquality', long_name: 'WALLET_LIQUALITY' },
+  METAMASK: { formal_name: 'Metamask', short_name: 'metamask', long_name: 'WALLET_METAMASK' },
+  LEATHER: { formal_name: 'Leather', short_name: 'leather', long_name: 'WALLET_LEATHER' },
+} as const;
+
+export const OPERATION_TYPE = 'OPERATION_TYPE';
+export const OPERATION_AMOUNT = 'OPERATION_AMOUNT';
 
 export const RLOGIN_LIQUALITY_WALLET = 'Liquality';
-export const RSK_PEGOUT_DOCUMENTATION_URL = 'https://dev.rootstock.io/rsk/rbtc/conversion/networks/#rbtc-to-btc-conversion';
+export const DERIVE_BTC_ADDRESS_DOCUMENTATION_URL = 'https://dev.rootstock.io/guides/two-way-peg-app/pegout/deriving-electrum/';
 export const RLOGIN_METAMASK_WALLET = 'MetaMask';
 
 export const TOTAL_RBTC_STOCK = 21000000;
@@ -71,6 +78,8 @@ export const WEB3_SESSION_ADD_BALANCE = 'WEB3_SESSION_ADD_BALANCE';
 export const SESSION_SIGN_MESSAGE = 'SESSION_SIGN_MESSAGE';
 export const SESSION_ADD_BITCOIN_PRICE = 'SESSION_ADD_BITCOIN_PRICE';
 export const SESSION_CLEAR = 'SESSION_CLEAR';
+export const SESSION_ADD_TERMS_VALUE = 'SESSION_ADD_TERMS_VALUE';
+export const SESSION_ADD_TERMS_AND_CONDITIONS_ENABLED = 'SESSION_ADD_TERMS_AND_CONDITIONS_ENABLED';
 
 // Pegin tx Mutations
 export const PEGIN_TX_SET_ADDRESS_LIST = 'PEGIN_TX_SET_ADDRESS_LIST';
@@ -125,6 +134,8 @@ export const WEB3_SESSION_SET_BALANCE = 'WEB3_SESSION_SET_BALANCE';
 export const SESSION_SET_BTC_ACCOUNT = 'SESSION_SET_BTC_ACCOUNT';
 export const SESSION_SET_BITCOIN_PRICE = 'SESSION_SET_BITCOIN_PRICE';
 export const SESSION_CLEAR_STATE = 'SESSION_CLEAR_STATE';
+export const SESSION_SET_TERMS_ACCEPTED = 'SESSION_SET_TERMS_ACCEPTED';
+export const SESSION_SET_TERMS_AND_CONDITIONS_ENABLED = 'SESSION_SET_TERMS_AND_CONDITIONS_ENABLED';
 
 // Pegin tx getters
 export const WALLET_NAME = 'WALLET_NAME';
@@ -139,6 +150,8 @@ export const PEGIN_TX_GET_DERIVATION_PATH_FROM_ADDRESS = 'PEGIN_TX_GET_DERIVATIO
 export const PEGIN_TX_GET_STATUS_TX_ID = 'PEGIN_TX_GET_STATUS_TX_ID';
 export const PEGIN_TX_IS_ENOUGH_BALANCE = 'PEGIN_TX_IS_ENOUGH_BALANCE';
 export const PEGIN_TX_GET_ACCOUNT_BALANCE_TEXT = 'PEGIN_TX_GET_ACCOUNT_BALANCE_TEXT';
+export const PEGIN_TX_GET_ACCOUNT_UTXO_LIST = 'PEGIN_TX_GET_ACCOUNT_UTXO_LIST';
+export const PEGIN_TX_GET_SELECTED_UTXO_LIST = 'PEGIN_TX_GET_SELECTED_UTXO_LIST';
 
 // PegOut tx getters
 export const PEGOUT_TX_GET_SAFE_TX_FEE = 'PEGOUT_TX_GET_SAFE_TX_FEE';
@@ -155,6 +168,10 @@ export const PEGIN_TX_IS_HD_WALLET = 'PEGIN_TX_IS_HD_WALLET';
 // Session getters
 export const SESSION_IN_TX_FLOW = 'SESSION_IN_TX_FLOW';
 export const SESSION_IS_LEDGER_CONNECTED = 'SESSION_IS_LEDGER_CONNECTED';
+export const SESSION_IS_TREZOR_CONNECTED = 'SESSION_IS_TREZOR_CONNECTED';
+export const SESSION_IS_METAMASK_CONNECTED = 'SESSION_IS_METAMASK_CONNECTED';
+export const SESSION_IS_LIQUALITY_CONNECTED = 'SESSION_IS_LIQUALITY_CONNECTED';
+export const SESSION_IS_RLOGIN_DEFINED = 'SESSION_IS_RLOGIN_DEFINED';
 
 // environment
 export const BTC_NETWORK_MAINNET = 'main';
@@ -190,7 +207,6 @@ export const STATUS_GET_RELEASE_TIME_TEXT = 'STATUS_GET_RELEASE_TIME_TEXT';
 export const PEGOUT_TX_SET_BITCOIN_PRICE = 'PEGOUT_TX_SET_BITCOIN_PRICE';
 export const MAX_ADJACENT_UNUSED_ADDRESSES = 20;
 
-// eslint-disable-next-line no-shadow
 export enum PegStatus {
   WAITING_CONFIRMATIONS = 'WAITING_CONFIRMATIONS',
   CONFIRMED = 'CONFIRMED',
@@ -222,7 +238,7 @@ export const SUPPORTED_NETWORKS = {
   },
 };
 
-export const GETTING_FUNDS_DOCUMENTATION_URL = 'https://developers.rsk.co/guides/two-way-peg-app/getting-started/#getting-funds';
+export const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin&order=market_cap_desc&per_page=100&page=1&sparkline=false';
 // Peg-out status
 export const PEGOUT_SIGNING_BLOCKS_GAP = 30;
 export const PEGOUT_REQUIRED_CONFIRMATIONS = 4000;
@@ -254,3 +270,7 @@ export const TESTNET_ADDRESS_NSEGWIT = '^[tb1][0-9A-HJ-NP-Za-z]{41,62}';
 export const MAINNET_ADDRESS_LEGACY = '^[1][1-9A-HJ-NP-Za-km-z]{26,35}';
 export const MAINNET_ADDRESS_SEGWIT = '^[3][1-9A-HJ-NP-Za-km-z]{26,35}';
 export const MAINNET_ADDRESS_NSEGWIT = '^[bc1][0-9A-HJ-NP-Za-z]{41,62}';
+
+export const POWPEG_RSKT_HEADER = '52534b5401';
+export const PEGIN_OUTPUTS = 3;
+export const COOKIE_EXPIRATION_HOURS = 12;

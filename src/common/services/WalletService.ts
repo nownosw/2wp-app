@@ -1,12 +1,14 @@
 import * as constants from '@/common/store/constants';
 import SatoshiBig from '@/common/types/SatoshiBig';
-import { ApiService } from '@/common/services/index';
-import { Purpose, SignedTx, WalletCount } from '@/common/types/Wallets';
 import {
-  AccountBalance, AddressStatus, AppNetwork, BtcAccount, Tx, WalletAddress,
+  Purpose, SignedTx, WalletCount, Step,
+} from '@/common/types/Wallets';
+import {
+  AccountBalance, AddressStatus, AppNetwork, BtcAccount, Tx, UtxoListPerAccount, WalletAddress,
 } from '@/common/types';
 import { EnvironmentAccessorService } from '@/common/services/enviroment-accessor.service';
-import { convertToRequestBalance, getAccountType, deriveBatchAddresses } from '@/common/utils';
+import { getAccountType, deriveBatchAddresses } from '@/common/utils';
+import { BalanceService, UnusedAddressesService } from '@/pegin/services';
 
 export default abstract class WalletService {
   protected network: AppNetwork;
@@ -20,7 +22,11 @@ export default abstract class WalletService {
   protected currentAccount = 0;
 
   protected subscribers:
-    Array<(balance: AccountBalance, addressList: WalletAddress[]) => void > = [];
+    Array<(
+      balance: AccountBalance,
+      addressList: WalletAddress[],
+      utxoList: UtxoListPerAccount,
+    ) => void > = [];
 
   private loadingBalances = false;
 
@@ -28,6 +34,12 @@ export default abstract class WalletService {
     legacy: new SatoshiBig(0, 'satoshi'),
     segwit: new SatoshiBig(0, 'satoshi'),
     nativeSegwit: new SatoshiBig(0, 'satoshi'),
+  };
+
+  private utxoListAccumulated:UtxoListPerAccount = {
+    legacy: [],
+    segwit: [],
+    nativeSegwit: [],
   };
 
   protected adjacentUnusedAddresses: {
@@ -75,6 +87,12 @@ export default abstract class WalletService {
 
   abstract areEnoughUnusedAddresses(): boolean;
 
+  abstract name(): string;
+
+  abstract availableAccounts(): Array<BtcAccount>;
+
+  abstract confirmationSteps(): Array<Step>;
+
   get isLoadingBalances(): boolean {
     return this.loadingBalances;
   }
@@ -98,8 +116,12 @@ export default abstract class WalletService {
     return `${accountPath}${coinPath}/${accountIdx}'`;
   }
 
-  protected getDerivationPath(accountType: string, accountIdx: number, change: boolean,
-    addressIdx: number): string {
+  protected getDerivationPath(
+    accountType: string,
+    accountIdx: number,
+    change: boolean,
+    addressIdx: number,
+  ): string {
     const changePath: string = change ? '/1' : '/0';
     return `${this.getAccountPath(accountType, accountIdx)}${changePath}/${addressIdx}`;
   }
@@ -153,8 +175,12 @@ export default abstract class WalletService {
     });
   }
 
-  protected informSubscribers(balance: AccountBalance, addressList:WalletAddress[]): void {
-    this.subscribers.forEach((s) => s(balance, addressList));
+  protected informSubscribers(
+    balance: AccountBalance,
+    addressList:WalletAddress[],
+    utxoList: UtxoListPerAccount,
+  ): void {
+    this.subscribers.forEach((s) => s(balance, addressList, utxoList));
   }
 
   private hasSubscribers(): boolean {
@@ -183,7 +209,7 @@ export default abstract class WalletService {
       }
       while (this.hasSubscribers() && !this.areEnoughUnusedAddresses()) {
         // eslint-disable-next-line no-await-in-loop
-        await this.askForBalance(sessionId);
+        await this.askForBalance();
         const maxAmountPeginCompare = new SatoshiBig(maxAmountPegin, 'satoshi');
         if (this.balanceAccumulated.legacy.gte(maxAmountPeginCompare)
           && this.balanceAccumulated.segwit.gte(maxAmountPeginCompare)
@@ -202,10 +228,12 @@ export default abstract class WalletService {
         }
       }
       this.loadingBalances = false;
-      this.informSubscribers(this.balanceAccumulated, []);
-    } catch (error) {
-      if (!error.message) {
-        error.message = 'Error fetching balance';
+      this.informSubscribers(this.balanceAccumulated, [], this.utxoListAccumulated);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        if (!error.message) {
+          error.message = 'Error fetching balance';
+        }
       }
       throw error;
     } finally {
@@ -213,33 +241,31 @@ export default abstract class WalletService {
     }
   }
 
-  private async askForBalance(sessionId: string): Promise<void> {
+  private async askForBalance(): Promise<void> {
     let addresses = await this.getAccountAddresses();
     if (addresses.length === 0) {
       throw new Error('Error getting list of addresses - List of addresses is empty');
     }
     addresses = await this.getUnusedValue(addresses);
-    const requestBalance = convertToRequestBalance(addresses);
-    const balancesFound = await ApiService.getBalances(sessionId, requestBalance);
-    const balances = {
-      legacy: new SatoshiBig(balancesFound.legacy || 0, 'satoshi'),
-      segwit: new SatoshiBig(balancesFound.segwit || 0, 'satoshi'),
-      nativeSegwit: new SatoshiBig(balancesFound.nativeSegwit || 0, 'satoshi'),
-    };
+    const balances = await BalanceService.getBalances(addresses);
     if (!balances) {
       throw new Error('Error getting balances');
     }
     this.balanceAccumulated = {
-      legacy: new SatoshiBig(this.balanceAccumulated.legacy.plus(balances.legacy), 'satoshi'),
-      segwit: new SatoshiBig(this.balanceAccumulated.segwit.plus(balances.segwit), 'satoshi'),
-      nativeSegwit: new SatoshiBig(this.balanceAccumulated.nativeSegwit.plus(balances.nativeSegwit), 'satoshi'),
+      legacy: new SatoshiBig(this.balanceAccumulated.legacy.plus(balances.legacy.balance), 'satoshi'),
+      segwit: new SatoshiBig(this.balanceAccumulated.segwit.plus(balances.segwit.balance), 'satoshi'),
+      nativeSegwit: new SatoshiBig(this.balanceAccumulated.nativeSegwit.plus(balances.nativeSegwit.balance), 'satoshi'),
     };
-    this.informSubscribers(this.balanceAccumulated, addresses);
+    this.utxoListAccumulated.legacy = this.utxoListAccumulated.legacy.concat(balances.legacy.utxos);
+    this.utxoListAccumulated.segwit = this.utxoListAccumulated.segwit.concat(balances.segwit.utxos);
+    this.utxoListAccumulated.nativeSegwit = this.utxoListAccumulated
+      .nativeSegwit.concat(balances.nativeSegwit.utxos);
+    this.informSubscribers(this.balanceAccumulated, addresses, this.utxoListAccumulated);
   }
 
   private getUnusedValue(addressList: Array<WalletAddress>): Promise<Array<WalletAddress>> {
     const addressListResponse: Array<WalletAddress> = [];
-    return ApiService
+    return UnusedAddressesService
       .areUnusedAddresses(addressList.map((walletAddress) => walletAddress.address))
       .then((addressStatusList: AddressStatus[]) => {
         addressList.forEach((walletAddressItem: WalletAddress) => {

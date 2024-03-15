@@ -1,17 +1,21 @@
-import Vue from 'vue';
 import Web3 from 'web3';
 import { ActionTree } from 'vuex';
 import RLogin from '@rsksmart/rlogin';
 import WalletConnectProvider from '@walletconnect/web3-provider';
 import { trezorProviderOptions } from '@rsksmart/rlogin-trezor-provider';
 import { ledgerProviderOptions } from '@rsksmart/rlogin-ledger-provider';
+import axios, { AxiosResponse } from 'axios';
 import * as constants from '@/common/store/constants';
 import {
   TransactionType, SessionState, RootState, WeiBig,
 } from '@/common/types';
 import { EnvironmentAccessorService } from '@/common/services/enviroment-accessor.service';
-import { getBtcAddressFromSignedMessage } from '@/common/utils';
-import axios, { AxiosResponse } from 'axios';
+import { ApiService } from '@/common/services';
+import {
+  getBtcAddressFromSignedMessage,
+  getCookie,
+  setCookie,
+} from '@/common/utils';
 
 export const actions: ActionTree<SessionState, RootState> = {
   [constants.SESSION_CONNECT_WEB3]: ({ commit, state }): Promise<void> => {
@@ -35,6 +39,14 @@ export const actions: ActionTree<SessionState, RootState> = {
         });
     }
     const supportedChains = Object.keys(rpcUrls).map(Number);
+    const customLedgerProviderOptions = ledgerProviderOptions;
+    customLedgerProviderOptions.connector = async (ProviderPackage, options) => {
+      const ledgerOptions = options;
+      ledgerOptions.messageHashed = true;
+      const provider = new ProviderPackage(ledgerOptions);
+      await provider.connect();
+      return provider;
+    };
     const rLogin = state.rLoginInstance === undefined ? new RLogin({
       cacheProvider: false,
       providerOptions: {
@@ -44,7 +56,7 @@ export const actions: ActionTree<SessionState, RootState> = {
             rpc: rpcUrls,
           },
         },
-        'custom-ledger': ledgerProviderOptions,
+        'custom-ledger': customLedgerProviderOptions,
         'custom-trezor': {
           ...trezorProviderOptions,
           options: {
@@ -63,12 +75,11 @@ export const actions: ActionTree<SessionState, RootState> = {
       rLogin.connect()
         .then((rLoginResponse) => {
           const web3 = new Web3(rLoginResponse.provider);
-          Vue.prototype.$web3 = web3;
           commit(constants.SESSION_IS_ENABLED, true);
           commit(constants.SESSION_SET_RLOGIN, rLoginResponse);
           commit(constants.SESSION_SET_RLOGIN_INSTANCE, rLogin);
           commit(constants.SESSION_SET_WEB3_INSTANCE, web3);
-          return Vue.prototype.$web3.eth.getAccounts();
+          return web3.eth.getAccounts();
         }).then((accounts) => {
           resolve(commit(constants.SESSION_SET_ACCOUNT, accounts[0]));
         })
@@ -79,13 +90,19 @@ export const actions: ActionTree<SessionState, RootState> = {
         });
     });
   },
-  [constants.WEB3_SESSION_GET_ACCOUNT]: async ({ commit }) => {
-    const accounts = await Vue.prototype.$web3.eth.getAccounts();
-    commit(constants.SESSION_SET_ACCOUNT, accounts[0]);
+  [constants.WEB3_SESSION_GET_ACCOUNT]: async ({ state, commit }) => {
+    const { web3 } = state;
+    if (web3) {
+      const accounts = await web3.eth.getAccounts();
+      commit(constants.SESSION_SET_ACCOUNT, accounts[0]);
+    }
   },
   [constants.WEB3_SESSION_ADD_BALANCE]: async ({ commit, state }) => {
-    const balance = await Vue.prototype.$web3.eth.getBalance(state.account);
-    return commit(constants.WEB3_SESSION_SET_BALANCE, new WeiBig(balance, 'wei'));
+    const { web3, account } = state;
+    if (web3 && account) {
+      const balance = await web3.eth.getBalance(account);
+      commit(constants.WEB3_SESSION_SET_BALANCE, new WeiBig(balance, 'wei'));
+    }
   },
   [constants.WEB3_SESSION_CLEAR_ACCOUNT]: async ({ commit }) => {
     commit(constants.SESSION_SET_ACCOUNT, undefined);
@@ -105,12 +122,47 @@ export const actions: ActionTree<SessionState, RootState> = {
         commit(constants.SESSION_SET_BTC_ACCOUNT, btcAddress);
       }
     },
-  [constants.SESSION_ADD_BITCOIN_PRICE]: ({ commit }) => axios.get('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin&order=market_cap_desc&per_page=100&page=1&sparkline=false')
-    .then((response: AxiosResponse) => {
-      const [result] = response.data;
-      commit(constants.SESSION_SET_BITCOIN_PRICE, result.current_price);
-    }),
+  [constants.SESSION_ADD_BITCOIN_PRICE]: ({ commit }) => {
+    const storedPrice = getCookie('BtcPrice');
+    if (storedPrice) {
+      commit(constants.SESSION_SET_BITCOIN_PRICE, Number(storedPrice));
+      commit(constants.SESSION_SET_TX_TYPE, 'PEG_IN_TRANSACTION_TYPE');
+    } else {
+      axios.get(constants.COINGECKO_API_URL)
+        .then((response: AxiosResponse) => {
+          const [result] = response.data;
+          setCookie('BtcPrice', result.current_price, constants.COOKIE_EXPIRATION_HOURS);
+          commit(constants.SESSION_SET_BITCOIN_PRICE, result.current_price);
+        })
+        .catch(() => {
+          commit(constants.SESSION_SET_BITCOIN_PRICE, 0);
+        })
+        .finally(() => {
+          commit(constants.SESSION_SET_TX_TYPE, 'PEG_IN_TRANSACTION_TYPE');
+        });
+    }
+  },
   [constants.SESSION_CLEAR]: ({ commit }) => {
     commit(constants.SESSION_CLEAR_STATE);
+  },
+  [constants.SESSION_ADD_TERMS_VALUE]: ({ commit, state }, value) => {
+    if (value) {
+      localStorage.setItem('TERMS_AND_CONDITIONS_ACCEPTED', String(state.termsAndConditionsEnabled?.version));
+    } else {
+      localStorage.removeItem('TERMS_AND_CONDITIONS_ACCEPTED');
+    }
+    commit(constants.SESSION_SET_TERMS_ACCEPTED, value);
+  },
+  [constants.SESSION_ADD_TERMS_AND_CONDITIONS_ENABLED]: async ({ commit, dispatch }) => {
+    try {
+      const features = await ApiService.getFeatures();
+      const flag = features.find(({ name }) => name === 'terms_and_conditions');
+      if (!flag?.version) return;
+      const versionAccepted = Number(localStorage.getItem('TERMS_AND_CONDITIONS_ACCEPTED'));
+      commit(constants.SESSION_SET_TERMS_AND_CONDITIONS_ENABLED, flag);
+      dispatch(constants.SESSION_ADD_TERMS_VALUE, flag?.version === versionAccepted);
+    } catch (e) {
+      dispatch(constants.SESSION_ADD_TERMS_VALUE, false);
+    }
   },
 };

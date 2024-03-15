@@ -7,21 +7,26 @@ import {
   NormalizedInput,
   NormalizedTx,
   SatoshiBig,
-  TxStatus, TxStatusType,
+  TxStatus,
+  TxStatusType,
+  Feature,
 } from '@/common/types';
 import { areValidOutputs, isValidInput } from '@/common/utils';
 import { BridgeService } from '@/common/services/BridgeService';
 import { EnvironmentAccessorService } from '@/common/services/enviroment-accessor.service';
 import { ApiInformation } from '@/common/types/ApiInformation';
 import { BlockbookUtxo } from '@/pegin/types/services';
+import { AddressInfo } from '@/pegin/types';
 
 export default class ApiService {
   static get baseURL(): string {
     return EnvironmentAccessorService.getEnvironmentVariables().vueAppApiBaseUrl;
   }
 
-  public static getBalances(sessionId: string,
-    addressList?: RequestBalance[]): Promise<AccountBalance> {
+  public static getBalances(
+    sessionId: string,
+    addressList?: RequestBalance[],
+  ): Promise<AccountBalance> {
     return new Promise((resolve, reject) => {
       axios.post(`${ApiService.baseURL}/balance`, {
         sessionId,
@@ -34,9 +39,13 @@ export default class ApiService {
 
   public static getUtxos(addressList: string[]): Promise<BlockbookUtxo[]> {
     return new Promise<BlockbookUtxo[]>((resolve, reject) => {
-      axios.post(`${ApiService.baseURL}/utxo`, { addressList })
-        .then((response) => resolve(response.data))
-        .catch(reject);
+      if (addressList.length > 0) {
+        axios.post(`${ApiService.baseURL}/utxo`, { addressList })
+          .then((response) => resolve(response.data.data))
+          .catch(reject);
+      } else {
+        resolve([]);
+      }
     });
   }
 
@@ -48,8 +57,11 @@ export default class ApiService {
     });
   }
 
-  public static getTxFee(sessionId: string, amount: number,
-    accountType: string): Promise<FeeAmountDataResponse> {
+  public static getTxFee(
+    sessionId: string,
+    amount: number,
+    accountType: string,
+  ): Promise<FeeAmountDataResponse> {
     return new Promise<FeeAmountDataResponse>((resolve, reject) => {
       axios.post(`${ApiService.baseURL}/tx-fee`, {
         sessionId,
@@ -61,9 +73,16 @@ export default class ApiService {
     });
   }
 
-  public static createPeginTx(amountToTransferInSatoshi: number, refundAddress: string,
-    recipient: string, sessionId: string, feeLevel: string,
-    changeAddress: string, userAddressList: string[], feeAmountCalculated: SatoshiBig)
+  public static createPeginTx(
+    amountToTransferInSatoshi: number,
+    refundAddress: string,
+    recipient: string,
+    sessionId: string,
+    feeLevel: string,
+    changeAddress: string,
+    userAddressList: string[],
+    feeAmountCalculated: SatoshiBig,
+  )
     : Promise<NormalizedTx> {
     const bridgeService = new BridgeService();
     return new Promise<NormalizedTx>((resolve, reject) => {
@@ -96,9 +115,12 @@ export default class ApiService {
           }
           const expectedChangeAddress = changeAddress || normalizedTx.inputs[0].address;
           const { valid, reason } = areValidOutputs(
-            normalizedTx.outputs, powPegAddress,
+            normalizedTx.outputs,
+            powPegAddress,
             amountToTransferInSatoshi.toString(),
-            expectedChangeAddress, recipient, refundAddress,
+            expectedChangeAddress,
+            recipient,
+            refundAddress,
           );
           if (!valid) {
             reject(new Error(reason));
@@ -163,6 +185,16 @@ export default class ApiService {
     });
   }
 
+  public static getAddressesInfo(addressList: string[]): Promise<AddressInfo[]> {
+    return new Promise<AddressInfo[]>((resolve, reject) => {
+      axios.post(`${ApiService.baseURL}/addresses-info`, {
+        addressList,
+      })
+        .then((response) => resolve(response.data.addressesInfo))
+        .catch(reject);
+    });
+  }
+
   public static getApiInformation(): Promise<ApiInformation> {
     return new Promise<ApiInformation>((resolve, reject) => {
       axios.get(`${ApiService.baseURL}/api`)
@@ -173,9 +205,40 @@ export default class ApiService {
 
   static estimateFee(blockNumber: number):Promise<SatoshiBig> {
     return new Promise<SatoshiBig>((resolve, reject) => {
-      axios.get(`${ApiService.baseURL}/estimatefee/${blockNumber}`)
-        .then((response) => resolve(new SatoshiBig(response.data, 'btc')))
+      axios.get(`${ApiService.baseURL}/estimate-fee/${blockNumber}`)
+        .then((response) => resolve(new SatoshiBig(response.data.amount, 'btc').div(1000)))
         .catch(reject);
+    });
+  }
+
+  static registerTx({
+    sessionId, txHash, type, value, wallet, addressType, fee, rskGas, btcEstimatedFee,
+  }: {
+    sessionId: string,
+    txHash: string,
+    type: string,
+    value: number,
+    wallet: string,
+    addressType?: string,
+    fee?: number,
+    rskGas?: number,
+    btcEstimatedFee?: number
+  }): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      if (sessionId == null || txHash == null || type == null) resolve();
+      axios.post(`${ApiService.baseURL}/register`, {
+        sessionId, txHash, type, value, wallet, addressType, fee, rskGas, btcEstimatedFee,
+      })
+        .then(() => resolve())
+        .catch(reject);
+    });
+  }
+
+  static getFeatures(): Promise<Feature[]> {
+    return new Promise<Feature[]>((resolve, reject) => {
+      axios.get(`${ApiService.baseURL}/features`)
+        .then((response) => resolve(response.data))
+        .catch(() => reject(new Error('Unable to get feature flags')));
     });
   }
 }

@@ -1,28 +1,30 @@
+import * as bitcoin from 'bitcoinjs-lib';
 import { EnvironmentAccessorService } from '@/common/services/enviroment-accessor.service';
 import {
   NormalizedOutput, NormalizedTx, SatoshiBig, Utxo,
 } from '@/common/types';
-import { validateAddress } from '@/common/utils';
+import { remove0x, validateAddress } from '@/common/utils';
 import * as constants from '@/common/store/constants';
-import * as bitcoin from 'bitcoinjs-lib';
 
 export default class PeginTxService {
   private static getRskOutput(recipientAddress: string, refundAddress: string): NormalizedOutput {
     const output: NormalizedOutput = {
       amount: '0',
-      op_return_data: `52534b5401${recipientAddress}`,
+      op_return_data: `${constants.POWPEG_RSKT_HEADER + remove0x(recipientAddress)}`,
     };
-    const { addressType: refundAddressType } = validateAddress(refundAddress);
-    const hash = bitcoin.address.fromBase58Check(refundAddress).hash.toString('hex');
-    switch (refundAddressType) {
-      case constants.BITCOIN_LEGACY_ADDRESS:
-        output.op_return_data += `01${hash}`;
-        break;
-      case constants.BITCOIN_SEGWIT_ADDRESS:
-        output.op_return_data += `02${hash}`;
-        break;
-      default:
-        throw new Error(`Invalid refund address ${refundAddress}}`);
+    if (refundAddress) {
+      const { addressType: refundAddressType } = validateAddress(refundAddress);
+      const hash = bitcoin.address.fromBase58Check(refundAddress).hash.toString('hex');
+      switch (refundAddressType) {
+        case constants.BITCOIN_LEGACY_ADDRESS:
+          output.op_return_data += `01${hash}`;
+          break;
+        case constants.BITCOIN_SEGWIT_ADDRESS:
+          output.op_return_data += `02${hash}`;
+          break;
+        default:
+          throw new Error(`Invalid refund address ${refundAddress}}`);
+      }
     }
     return output;
   }
@@ -53,19 +55,18 @@ export default class PeginTxService {
       address: utxo.address ?? '',
       prev_hash: utxo.txid,
       amount: utxo.amount.toString(),
-      address_n: utxo.derivationArray,
       prev_index: utxo.vout,
     }));
     const federationOutput: NormalizedOutput = {
       address: federationAddress,
       amount: amountToTransfer.toSatoshiString(),
     };
-    normalizedTx.outputs.push(federationOutput);
     normalizedTx.outputs.push(this.getRskOutput(rskRecipientAddress, refundAddress));
+    normalizedTx.outputs.push(federationOutput);
     const totalBalance = selectedUtxoList.reduce((acc, { amount }) => acc + amount, 0);
     const totalBalanceInSatoshis = new SatoshiBig(totalBalance, 'satoshi');
     const changeOutput: NormalizedOutput = {
-      address: changeAddress,
+      address: changeAddress === '' ? normalizedTx.inputs[0].address : changeAddress,
       amount: totalBalanceInSatoshis.minus(amountToTransfer).minus(totalFee).toSatoshiString(),
     };
     const burnDustValue = Math.min(

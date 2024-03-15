@@ -1,12 +1,16 @@
-import TrezorConnect, { Address, GetAddress } from 'trezor-connect';
+import TrezorConnect, { Address } from '@trezor/connect-web';
 import * as bitcoin from 'bitcoinjs-lib';
 import { Network } from 'bitcoinjs-lib';
-import { WalletAddress } from '@/common/types/pegInTx';
+import { BtcAccount, WalletAddress } from '@/common/types/pegInTx';
 import * as constants from '@/common/store/constants';
 import {
-  TrezorSignedTx, TrezorTx, Tx,
+  GetAddress,
+  SignedTx,
+  Step,
+  TrezorTx, Tx,
 } from '@/common/types';
 import { WalletService } from '@/common/services/index';
+import { TrezorError } from '@/common/types/exception/TrezorError';
 import { EnvironmentAccessorService } from './enviroment-accessor.service';
 
 type TrezorCoin = 'TESTNET' | 'BTC';
@@ -32,6 +36,114 @@ export default class TrezorService extends WalletService {
       email: EnvironmentAccessorService.getEnvironmentVariables().vueAppManifestEmail,
       appUrl: EnvironmentAccessorService.getEnvironmentVariables().vueAppManifestAppUrl,
     });
+  }
+
+  private static unableToConnect(): TrezorError {
+    const error = new TrezorError();
+    error.message = 'It appears there was an error connecting to the Trezor, please reconnect and try again.';
+    return error;
+  }
+
+  private static unableToSignTx(): TrezorError {
+    const error = new TrezorError();
+    error.message = 'It appears there was an error while signing the transaction, please try again.';
+    return error;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  name(): string {
+    return constants.WALLET_NAMES.TREZOR.short_name;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  public availableAccounts(): BtcAccount[] {
+    return [
+      constants.BITCOIN_LEGACY_ADDRESS,
+      constants.BITCOIN_SEGWIT_ADDRESS,
+      constants.BITCOIN_NATIVE_SEGWIT_ADDRESS,
+    ];
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  confirmationSteps(): Step[] {
+    return [
+      {
+        title: 'Confirm your transaction',
+        subtitle: 'Please check your Trezor device',
+        outputsToshow: {
+          opReturn: {
+            value: true,
+            amount: true,
+          },
+          change: {
+            address: false,
+            amount: false,
+          },
+          federation: {
+            address: false,
+            amount: false,
+          },
+        },
+        fee: false,
+      },
+      {
+        title: 'Confirm funds transfer',
+        subtitle: 'Confirm sending',
+        outputsToshow: {
+          opReturn: {
+            value: false,
+            amount: false,
+          },
+          change: {
+            address: false,
+            amount: false,
+          },
+          federation: {
+            address: true,
+            amount: true,
+          },
+        },
+        fee: false,
+      },
+      {
+        title: 'Confirm change address',
+        subtitle: 'Confirm sending',
+        outputsToshow: {
+          opReturn: {
+            value: false,
+            amount: false,
+          },
+          change: {
+            address: true,
+            amount: true,
+          },
+          federation: {
+            address: false,
+            amount: false,
+          },
+        },
+        fee: false,
+      },
+      {
+        title: 'Confirm transaction fee',
+        subtitle: 'Really send',
+        outputsToshow: {
+          opReturn: {
+            value: false,
+            amount: false,
+          },
+          change: {
+            address: false,
+            amount: false,
+          },
+          federation: {
+            address: false,
+            amount: true,
+          },
+        },
+        fee: true,
+      },
+    ];
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -110,7 +222,9 @@ export default class TrezorService extends WalletService {
         bundle,
       })
         .then((result) => {
-          if (!result.success) reject(new Error(result.payload.error));
+          if (!result.success) {
+            reject(TrezorService.unableToConnect());
+          }
           const addresses: WalletAddress[] = [];
           Object.entries(result.payload).forEach((obj) => {
             const address = obj[1] as Address;
@@ -123,39 +237,14 @@ export default class TrezorService extends WalletService {
           });
           resolve(addresses);
         })
-        .catch(reject);
+        .catch(() => reject(TrezorService.unableToConnect()));
     });
   }
 
-  // eslint-disable-next-line class-methods-use-this
-  public getAccountUnusedAddresses(accountType: string): Promise<string[]> {
-    return new Promise((resolve, reject) => {
-      TrezorConnect.getAccountInfo({
-        path: this.getAccountPath(accountType, 0),
-        coin: this.trezorCoin,
-        details: 'txs',
-      })
-        .then((result) => {
-          if (!result.success) reject(new Error(result.payload.error));
-          const unusedAddresses: string[] = [];
-          if ('addresses' in result.payload) {
-            const { addresses } = result.payload;
-            if (addresses && 'unused' in addresses) {
-              Object.entries(addresses.unused)
-                .forEach((obj) => {
-                  unusedAddresses.push(obj[1].address);
-                });
-            }
-          }
-          resolve(unusedAddresses);
-        })
-        .catch(reject);
-    });
-  }
-
-  public sign(tx: Tx): Promise<TrezorSignedTx> {
+  public sign(tx: Tx): Promise<SignedTx> {
     const trezorTx: TrezorTx = tx as TrezorTx;
-    return new Promise<TrezorSignedTx>((resolve, reject) => {
+    trezorTx.inputs = JSON.parse(JSON.stringify(trezorTx.inputs));
+    return new Promise<SignedTx>((resolve, reject) => {
       TrezorConnect.signTransaction({
         inputs: trezorTx.inputs,
         outputs: trezorTx.outputs,
@@ -166,17 +255,13 @@ export default class TrezorService extends WalletService {
         .then((res) => {
           if (res.success) {
             resolve({
-              success: res.success,
-              payload: {
-                signatures: res.payload.signatures,
-                serializedTx: res.payload.serializedTx,
-              },
+              signedTx: res.payload.serializedTx,
             });
           } else {
-            reject(new Error(res.payload.error));
+            reject(TrezorService.unableToSignTx());
           }
         })
-        .catch(reject);
+        .catch(() => reject(TrezorService.unableToSignTx()));
     });
   }
 

@@ -22,7 +22,6 @@ export const mutations: MutationTree<SessionState> = {
     state.rLoginInstance = rLoginInstance;
   },
   [constants.SESSION_CLOSE_RLOGIN]: async (state) => {
-    // eslint-disable-next-line no-unused-expressions
     await state.rLogin?.disconnect();
   },
   [constants.SESSION_SET_TX_TYPE]: (state, txType: TransactionType) => {
@@ -34,7 +33,7 @@ export const mutations: MutationTree<SessionState> = {
   [constants.SESSION_SET_BTC_ACCOUNT]: (state, btcDerivedAddress: string) => {
     state.btcDerivedAddress = btcDerivedAddress;
   },
-  [constants.SESSION_SET_BITCOIN_PRICE]: (state, bitcoinPrice) => {
+  [constants.SESSION_SET_BITCOIN_PRICE]: (state, bitcoinPrice: number) => {
     state.bitcoinPrice = bitcoinPrice;
   },
   [constants.SESSION_CLEAR_STATE]: async (state) => {
@@ -42,5 +41,11 @@ export const mutations: MutationTree<SessionState> = {
     const clearState = getClearSessionState();
     clearState.rLoginInstance = state.rLoginInstance;
     Object.assign(state, clearState);
+  },
+  [constants.SESSION_SET_TERMS_ACCEPTED]: (state, value) => {
+    state.acceptedTerms = value;
+  },
+  [constants.SESSION_SET_TERMS_AND_CONDITIONS_ENABLED]: (state, value) => {
+    state.termsAndConditionsEnabled = value;
   },
 };

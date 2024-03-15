@@ -6,8 +6,8 @@ export type BtcAccount = 'BITCOIN_LEGACY_ADDRESS' |
   'BITCOIN_SEGWIT_ADDRESS' |
   'BITCOIN_NATIVE_SEGWIT_ADDRESS';
 
-export type BtcWallet = 'WALLET_LEDGER' |
-  'WALLET_TREZOR' | 'WALLET_LIQUALITY';
+export type BtcWallet = 'WALLET_LEDGER' | 'WALLET_TREZOR'
+| 'WALLET_LIQUALITY' | 'WALLET_LEATHER';
 
 export type MiningSpeedFee = 'BITCOIN_SLOW_FEE_LEVEL' |
   'BITCOIN_AVERAGE_FEE_LEVEL' |
@@ -38,13 +38,17 @@ export interface Utxo {
   txid: string;
   amount: number; // SatoshiBN
   address?: string;
-  path: string;
-  derivationArray: number[];
   vout: number;
 }
 
+export interface UtxoListPerAccount {
+  legacy: Utxo[],
+  segwit: Utxo[],
+  nativeSegwit: Utxo[],
+}
+
 export interface PegInTxState {
-  utxoList?: Utxo[];
+  utxoList?: UtxoListPerAccount;
   addressList?: WalletAddress[];
   balances: AccountBalance;
   loadingBalance: boolean;

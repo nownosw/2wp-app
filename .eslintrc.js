@@ -4,7 +4,7 @@ module.exports = {
     node: true,
   },
   extends: [
-    'plugin:vue/essential',
+    'plugin:vue/vue3-essential',
     '@vue/airbnb',
     '@vue/typescript/recommended',
   ],
@@ -17,21 +17,30 @@ module.exports = {
     'import/prefer-default-export': 'off',
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
-    'no-shadow': 'warn',
+    'no-shadow': 'off',
     '@typescript-eslint/no-shadow': ['warn'],
     camelcase: 'error',
     'no-use-before-define': 'error',
     '@typescript-eslint/ban-types': 'error',
     '@typescript-eslint/no-unused-vars': 'error',
+    'import/no-cycle': 'off',
+    'max-len': ['warn', {
+      code: 100,
+      ignoreComments: true,
+      ignoreTemplateLiterals: true,
+      ignoreStrings: true,
+      ignoreUrls: true,
+    }],
+    'vuejs-accessibility/mouse-events-have-key-events': 'off',
   },
   overrides: [
     {
       files: [
         '**/__tests__/*.{j,t}s?(x)',
-        '**/tests2/unit/**/*.spec.{j,t}s?(x)',
+        '**/tests/unit/**/*.spec.{j,t}s?(x)',
       ],
       env: {
-        mocha: true,
+        jest: true,
       },
     },
   ],

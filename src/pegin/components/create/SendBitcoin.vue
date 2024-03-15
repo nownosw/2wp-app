@@ -1,10 +1,12 @@
 <template>
   <v-container fluid class="mt-0">
-    <template v-if="!peginTxState.walletDataReady">
+    <template v-if="!walletDataReady">
       <connect-device @continueToForm="startAskingForBalance"
-                      :sendBitcoinState="sendBitcoinState"/>
+                      :sendBitcoinState="sendBitcoinState"
+                      :show-dialog="showConnectDeviceDialog"
+      />
     </template>
-    <template v-if="peginTxState.walletDataReady">
+    <template v-if="walletDataReady">
       <component :is="currentComponent"
                  @createTx="toConfirmTx" @successConfirmation="toTrackingId"
                  :txBuilder="txBuilder"
@@ -30,249 +32,244 @@
 </template>
 
 <script lang="ts">
-import {
-  Component, Emit,
-  Vue,
-} from 'vue-property-decorator';
-import { Action, Getter, State } from 'vuex-class';
+import { ref, defineComponent } from 'vue';
+import { useRouter } from 'vue-router';
 import PegInForm from '@/pegin/components/create/PegInForm.vue';
-import ConfirmTrezorTransaction from '@/pegin/components/trezor/ConfirmTrezorTransaction.vue';
 import ConfirmLedgerTransaction from '@/pegin/components/ledger/ConfirmLedgerTransaction.vue';
+import ConfirmTx from '@/pegin/components/create/ConfirmTx.vue';
 import * as constants from '@/common/store/constants';
 import {
-  NormalizedTx, SendBitcoinState, SatoshiBig, PegInTxState, BtcWallet, LiqualityError,
+  SendBitcoinState, SatoshiBig, BtcWallet, LiqualityError, Utxo,
 } from '@/common/types';
-import TrezorTxBuilder from '@/pegin/middleware/TxBuilder/TrezorTxBuilder';
-import DeviceErrorDialog from '@/common/components/exchange/DeviceErrorDialog.vue';
-import ConnectDevice from '@/common/components/exchange/ConnectDevice.vue';
-import TxErrorDialog from '@/common/components/exchange/TxErrorDialog.vue';
 import { Machine, getClearPeginTxState } from '@/common/utils';
+import ConfirmLiqualityTransaction from '@/pegin/components/liquality/ConfirmLiqualityTransaction.vue';
+import { useAction, useGetter, useStateAttribute } from '@/common/store/helper';
+import TrezorTxBuilder from '@/pegin/middleware/TxBuilder/TrezorTxBuilder';
 import LedgerTxBuilder from '@/pegin/middleware/TxBuilder/LedgerTxBuilder';
 import LiqualityTxBuilder from '@/pegin/middleware/TxBuilder/LiqualityTxBuilder';
 import TxBuilder from '@/pegin/middleware/TxBuilder/TxBuilder';
-import ConfirmLiqualityTransaction from '@/pegin/components/liquality/ConfirmLiqualityTransaction.vue';
+import DeviceErrorDialog from '@/common/components/exchange/DeviceErrorDialog.vue';
+import ConnectDevice from '@/common/components/exchange/ConnectDevice.vue';
+import TxErrorDialog from '@/common/components/exchange/TxErrorDialog.vue';
+import { BridgeService } from '@/common/services/BridgeService';
+import { TrezorError } from '@/common/types/exception/TrezorError';
+import LeatherTxBuilder from '@/pegin/middleware/TxBuilder/LeatherTxBuilder';
+import PeginTxService from '../../services/PeginTxService';
 
-@Component({
+export default defineComponent({
+  name: 'SendBitcoin',
   components: {
     PegInForm,
-    ConfirmTrezorTransaction,
     ConfirmLedgerTransaction,
     ConfirmLiqualityTransaction,
+    ConfirmTx,
     ConnectDevice,
     DeviceErrorDialog,
     TxErrorDialog,
   },
-})
+  setup(_, context) {
+    const showErrorDialog = ref(false);
+    const showTxErrorDialog = ref(false);
+    const showConnectDeviceDialog = ref(false);
+    const deviceError = ref('test');
+    const errorType = ref('');
+    const urlToMoreInformation = ref('');
+    const messageToUserOnLink = ref('');
+    const installationLink = ref('');
+    const messageInstallationToUser = ref('');
+    const sendBitcoinState = ref<SendBitcoinState>('idle');
+    const currentComponent = ref('PegInForm');
+    const txId = ref('');
+    const txError = ref('');
+    const confirmTxState = ref<Machine<
+      'idle'
+      | 'loading'
+      | 'error'
+      | 'goingHome'
+      >>(new Machine('idle'));
+    const txBuilder = ref<TxBuilder>();
+    const router = useRouter();
+    const currentWallet = ref('');
+    const bitcoinWallet = useStateAttribute<BtcWallet>('pegInTx', 'bitcoinWallet');
+    const walletDataReady = useStateAttribute<boolean>('pegInTx', 'walletDataReady');
+    const startAskingForBalanceStore = useAction('pegInTx', constants.PEGIN_TX_START_ASKING_FOR_BALANCE);
+    const stopAskingForBalance = useAction('pegInTx', constants.PEGIN_TX_STOP_ASKING_FOR_BALANCE);
+    const addNormalizedTx = useAction('pegInTx', constants.PEGIN_TX_ADD_NORMALIZED_TX);
+    const clearAccount = useAction('web3Session', constants.WEB3_SESSION_CLEAR_ACCOUNT);
+    const clearStore = useAction('pegInTx', constants.PEGIN_TX_CLEAR_STATE);
+    const init = useAction('pegInTx', constants.PEGIN_TX_INIT);
+    const setBtcWallet = useAction('pegInTx', constants.PEGIN_TX_ADD_BITCOIN_WALLET);
+    const getChangeAddress = useGetter<string>('pegInTx', constants.PEGIN_TX_GET_CHANGE_ADDRESS);
+    const selectedUtxoList = useGetter<Utxo[]>('pegInTx', constants.PEGIN_TX_GET_SELECTED_UTXO_LIST);
+    const selectedFee = useGetter<SatoshiBig>('pegInTx', constants.PEGIN_TX_GET_SAFE_TX_FEE);
 
-export default class SendBitcoin extends Vue {
-  showErrorDialog = false;
-
-  showTxErrorDialog = false;
-
-  deviceError = 'test';
-
-  errorType = '';
-
-  urlToMoreInformation = '';
-
-  messageToUserOnLink = '';
-
-  installationLink = '';
-
-  messageInstallationToUser = '';
-
-  sendBitcoinState: SendBitcoinState = 'idle';
-
-  currentComponent = 'PegInForm';
-
-  txId = '';
-
-  txError = '';
-
-  confirmTxState: Machine<
-    'idle'
-    | 'loading'
-    | 'error'
-    | 'goingHome'
-    > = new Machine('idle');
-
-  rawTx = '';
-
-  txBuilder!: TxBuilder;
-
-  @State('pegInTx') peginTxState!: PegInTxState;
-
-  @Action(constants.PEGIN_TX_START_ASKING_FOR_BALANCE, { namespace: 'pegInTx' }) startAskingForBalanceStore !: () => Promise<void>;
-
-  @Action(constants.PEGIN_TX_STOP_ASKING_FOR_BALANCE, { namespace: 'pegInTx' }) stopAskingForBalance !: () => Promise<void>;
-
-  @Action(constants.PEGIN_TX_ADD_NORMALIZED_TX, { namespace: 'pegInTx' }) addNormalizedTx !: (tx: NormalizedTx) => void;
-
-  @Action(constants.WEB3_SESSION_CLEAR_ACCOUNT, { namespace: 'web3Session' }) clearAccount !: () => void;
-
-  @Action(constants.PEGIN_TX_CLEAR_STATE, { namespace: 'pegInTx' }) clearStore !: () => void;
-
-  @Action(constants.PEGIN_TX_INIT, { namespace: 'pegInTx' }) init !: () => Promise<void>;
-
-  @Action(constants.PEGIN_TX_ADD_BITCOIN_WALLET, { namespace: 'pegInTx' }) setBtcWallet !: (wallet: BtcWallet) => Promise<void>;
-
-  @Getter(constants.PEGIN_TX_GET_CHANGE_ADDRESS, { namespace: 'pegInTx' }) getChangeAddress!: (accountType: string) => string;
-
-  get change() {
-    return this.getChangeAddress;
-  }
-
-  @Emit()
-  async toConfirmTx({
-    amountToTransferInSatoshi,
-    refundAddress,
-    recipient,
-    feeLevel,
-    accountType,
-  }: {
-    amountToTransferInSatoshi: SatoshiBig;
-    refundAddress: string;
-    recipient: string;
-    feeLevel: string;
-    accountType: string;
-  }) {
-    this.txBuilder.getNormalizedTx({
-      amountToTransferInSatoshi: Number(amountToTransferInSatoshi.toString()),
+    async function toConfirmTx({
+      amountToTransferInSatoshi,
       refundAddress,
       recipient,
-      feeLevel,
-      changeAddress: this.getChangeAddress(accountType),
-      sessionId: this.peginTxState.sessionId,
-      accountType,
-    })
-      .then((tx: NormalizedTx) => {
-        this.addNormalizedTx(tx);
-        switch (this.peginTxState.bitcoinWallet) {
-          case constants.WALLET_LEDGER:
-            this.currentComponent = 'ConfirmLedgerTransaction';
-            break;
-          case constants.WALLET_LIQUALITY:
-            this.currentComponent = 'ConfirmLiqualityTransaction';
-            break;
-          default:
-            this.currentComponent = 'ConfirmTrezorTransaction';
-            break;
-        }
-        return tx;
-      })
-      .catch((error) => {
-        this.txError = error.message;
-        this.showTxErrorDialog = true;
-      });
-  }
-
-  @Emit()
-  toPegInForm() {
-    this.currentComponent = 'PegInForm';
-    this.confirmTxState.send('idle');
-    this.addNormalizedTx(getClearPeginTxState().normalizedTx);
-  }
-
-  @Emit()
-  toTrackingId([txError, txId]: string[]) {
-    if (txError !== '') {
-      this.txError = txError;
-      this.showTxErrorDialog = true;
-      this.txId = txId;
-    } else if (txId) {
-      this.$router.push({ name: 'Success', params: { txId } });
+    }: {
+      amountToTransferInSatoshi: SatoshiBig;
+      refundAddress: string;
+      recipient: string;
+      accountType: string;
+    }) {
+      const bridgeService = new BridgeService();
+      const normalizedTx = PeginTxService.buildNormalizedTx(
+        {
+          amountToTransfer: amountToTransferInSatoshi,
+          federationAddress: await bridgeService.getFederationAddress(),
+          refundAddress,
+          rskRecipientAddress: recipient,
+          changeAddress: getChangeAddress.value,
+          totalFee: selectedFee.value,
+          selectedUtxoList: selectedUtxoList.value,
+        },
+      );
+      await addNormalizedTx(normalizedTx);
+      currentComponent.value = 'ConfirmTx';
+      return normalizedTx;
     }
-  }
 
-  @Emit()
-  closeErrorDialog() {
-    this.showErrorDialog = false;
-    this.sendBitcoinState = 'idle';
-  }
-
-  @Emit()
-  async closeTxErrorDialog() {
-    this.showTxErrorDialog = false;
-    this.sendBitcoinState = 'idle';
-    this.confirmTxState.send('idle');
-  }
-
-  @Emit()
-  startAskingForBalance() {
-    this.sendBitcoinState = 'loading';
-    this.startAskingForBalanceStore()
-      .catch((e) => {
-        if (e.statusCode === 27010) {
-          this.deviceError = 'Please unlock your Ledger device.';
-        } else {
-          this.deviceError = e.message;
-        }
-        if (e instanceof LiqualityError) {
-          this.errorType = e.errorType;
-          this.urlToMoreInformation = e.urlToMoreInformation;
-          this.messageToUserOnLink = e.messageToUserOnLink;
-          this.messageInstallationToUser = e.messageInstallationToUser;
-          this.installationLink = e.installationLink;
-        }
-        this.sendBitcoinState = 'error';
-        this.showErrorDialog = true;
-      });
-  }
-
-  @Emit()
-  async backToConnectDevice() {
-    await this.clear();
-    this.clearAccount();
-    let wallet: BtcWallet;
-    if (this.peginTxState.bitcoinWallet) {
-      wallet = this.peginTxState.bitcoinWallet;
-    } else {
-      await this.back();
+    function toPegInForm() {
+      currentComponent.value = 'PegInForm';
+      confirmTxState.value.send('idle');
+      addNormalizedTx(getClearPeginTxState().normalizedTx);
     }
-    this.clearStore();
-    this.init()
-      .then(() => this.setBtcWallet(wallet));
-  }
 
-  @Emit('back')
-  async back() {
-    await this.stopAskingForBalance();
-  }
-
-  @Emit()
-  setTxBuilder():void {
-    switch (this.peginTxState.bitcoinWallet) {
-      case constants.WALLET_TREZOR:
-        this.txBuilder = new TrezorTxBuilder();
-        break;
-      case constants.WALLET_LEDGER:
-        this.txBuilder = new LedgerTxBuilder();
-        break;
-      case constants.WALLET_LIQUALITY:
-        this.txBuilder = new LiqualityTxBuilder();
-        break;
-      default:
-        this.txBuilder = new TrezorTxBuilder();
-        break;
+    function toTrackingId([error, txHash]: string[]) {
+      if (error !== '') {
+        txError.value = error;
+        showTxErrorDialog.value = true;
+        txId.value = txHash;
+      } else if (txHash) {
+        router.push({ name: 'Success', params: { txId: txHash, wallet: currentWallet.value } });
+      }
     }
-  }
 
-  @Emit()
-  async clear(): Promise<void> {
-    this.showErrorDialog = false;
-    this.showTxErrorDialog = false;
-    this.deviceError = 'Unexpected error';
-    this.sendBitcoinState = 'idle';
-    this.confirmTxState = new Machine('idle');
-    this.currentComponent = 'PegInForm';
-    this.txId = '';
-    this.txError = '';
-    this.setTxBuilder();
-    await this.stopAskingForBalance();
-  }
+    function closeErrorDialog() {
+      showErrorDialog.value = false;
+      sendBitcoinState.value = 'idle';
+    }
 
-  created() {
-    this.setTxBuilder();
-  }
-}
+    async function closeTxErrorDialog() {
+      showTxErrorDialog.value = false;
+      sendBitcoinState.value = 'idle';
+      confirmTxState.value.send('idle');
+    }
+
+    function startAskingForBalance() {
+      sendBitcoinState.value = 'loading';
+      startAskingForBalanceStore()
+        .catch((e) => {
+          const stringError = JSON.stringify(e);
+          if (e.statusCode === 27010) {
+            deviceError.value = 'Please unlock your Ledger device.';
+          } else if (stringError.includes('No device selected')) {
+            deviceError.value = 'There are no device selected, please check your wallet connection, unlock your device and try again.';
+          } else {
+            console.error(e);
+            deviceError.value = 'Something went wrong with the wallet, please check your wallet connection, unlock your device and try again.';
+          }
+          if (e instanceof LiqualityError) {
+            errorType.value = e.errorType;
+            urlToMoreInformation.value = e.urlToMoreInformation;
+            messageToUserOnLink.value = e.messageToUserOnLink;
+            messageInstallationToUser.value = e.messageInstallationToUser;
+            installationLink.value = e.installationLink;
+          }
+          if (e instanceof TrezorError) {
+            errorType.value = e.errorType;
+          }
+          sendBitcoinState.value = 'error';
+          showErrorDialog.value = true;
+        });
+    }
+
+    function setTxBuilder():void {
+      switch (bitcoinWallet.value) {
+        case constants.WALLET_NAMES.TREZOR.long_name:
+          txBuilder.value = new TrezorTxBuilder();
+          currentWallet.value = constants.WALLET_NAMES.TREZOR.short_name;
+          break;
+        case constants.WALLET_NAMES.LEDGER.long_name:
+          txBuilder.value = new LedgerTxBuilder();
+          currentWallet.value = constants.WALLET_NAMES.LEDGER.short_name;
+          break;
+        case constants.WALLET_NAMES.LIQUALITY.long_name:
+          txBuilder.value = new LiqualityTxBuilder();
+          currentWallet.value = constants.WALLET_NAMES.LIQUALITY.short_name;
+          break;
+        case constants.WALLET_NAMES.LEATHER.long_name:
+          txBuilder.value = new LeatherTxBuilder();
+          currentWallet.value = constants.WALLET_NAMES.LEATHER.short_name;
+          break;
+        default:
+          txBuilder.value = new TrezorTxBuilder();
+          break;
+      }
+    }
+
+    async function clear(): Promise<void> {
+      showErrorDialog.value = false;
+      showTxErrorDialog.value = false;
+      deviceError.value = 'Unexpected error';
+      sendBitcoinState.value = 'idle';
+      confirmTxState.value = new Machine('idle');
+      currentComponent.value = 'PegInForm';
+      txId.value = '';
+      txError.value = '';
+      setTxBuilder();
+      await clearAccount();
+      await stopAskingForBalance();
+    }
+
+    async function back() {
+      await stopAskingForBalance();
+      context.emit('back');
+    }
+
+    async function backToConnectDevice() {
+      await clear();
+      let wallet: BtcWallet;
+      if (bitcoinWallet.value && bitcoinWallet.value
+        !== constants.WALLET_NAMES.LIQUALITY.long_name) {
+        wallet = bitcoinWallet.value;
+      } else {
+        await back();
+      }
+      showConnectDeviceDialog.value = true;
+      await clearStore();
+      init()
+        .then(() => setBtcWallet(wallet));
+    }
+
+    setTxBuilder();
+
+    return {
+      startAskingForBalance,
+      sendBitcoinState,
+      toConfirmTx,
+      toTrackingId,
+      currentComponent,
+      txBuilder,
+      txId,
+      backToConnectDevice,
+      toPegInForm,
+      confirmTxState,
+      showErrorDialog,
+      deviceError,
+      errorType,
+      urlToMoreInformation,
+      messageInstallationToUser,
+      messageToUserOnLink,
+      installationLink,
+      closeErrorDialog,
+      showTxErrorDialog,
+      txError,
+      closeTxErrorDialog,
+      walletDataReady,
+      showConnectDeviceDialog,
+    };
+  },
+});
 </script>

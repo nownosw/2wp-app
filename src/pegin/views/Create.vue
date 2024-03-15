@@ -5,34 +5,29 @@
 </template>
 
 <script lang="ts">
-import {
-  Component, Emit, Vue,
-} from 'vue-property-decorator';
-import { Action } from 'vuex-class';
-import { BtcWallet } from '@/common/types/pegInTx';
+import { defineComponent } from 'vue';
+import { useRouter } from 'vue-router';
 import * as constants from '@/common/store/constants';
+import { useAction } from '@/common/store/helper';
 import SendBitcoin from '@/pegin/components/create/SendBitcoin.vue';
 
-@Component({
+export default defineComponent({
+  name: 'CreatePegIn',
   components: {
     SendBitcoin,
   },
-})
-export default class Create extends Vue {
-  @Action(constants.PEGIN_TX_ADD_BITCOIN_WALLET, { namespace: 'pegInTx' }) setBitcoinWallet !: (wallet: BtcWallet) => void;
+  setup() {
+    const clear = useAction('pegInTx', constants.PEGIN_TX_CLEAR_STATE);
+    const router = useRouter();
 
-  @Action(constants.PEGIN_TX_CLEAR_STATE, { namespace: 'pegInTx' }) clear !: () => void;
+    function back() {
+      clear();
+      router.push({ name: 'PegIn' });
+    }
 
-  @Action(constants.PEGIN_TX_INIT, { namespace: 'pegInTx' }) initPegin !: () => void;
-
-  @Action(constants.PEGOUT_TX_INIT, { namespace: 'pegOutTx' }) init !: () => void;
-
-  @Emit()
-  back() {
-    this.clear();
-    this.init();
-    this.initPegin();
-    this.$router.push({ name: 'Home' });
-  }
-}
+    return {
+      back,
+    };
+  },
+});
 </script>

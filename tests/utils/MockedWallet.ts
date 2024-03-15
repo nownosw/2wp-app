@@ -1,6 +1,5 @@
 import {
-  BtcAccount,
-  LedgerSignedTx, TrezorSignedTx, Tx, WalletAddress,
+  BtcAccount, SignedTx, Step, Tx, WalletAddress,
 } from '@/common/types';
 import { WalletService } from '@/common/services';
 import * as constants from '@/common/store/constants';
@@ -9,7 +8,7 @@ interface TestCase {
   accountAddresses: WalletAddress[];
   walletAddressPerCall: number;
   walletMaxCall: number;
-  signedTx: TrezorSignedTx | LedgerSignedTx | Error;
+  signedTx: SignedTx | Error;
   xpub: {
     legacy: string;
     segwit: string;
@@ -22,6 +21,25 @@ export default class MockedWallet extends WalletService {
   constructor(testCase: TestCase) {
     super();
     this.testCase = testCase;
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  name(): string {
+    return 'MockedWallet';
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  public availableAccounts(): BtcAccount[] {
+    return [
+      constants.BITCOIN_LEGACY_ADDRESS,
+      constants.BITCOIN_SEGWIT_ADDRESS,
+      constants.BITCOIN_NATIVE_SEGWIT_ADDRESS,
+    ];
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  confirmationSteps(): Step[] {
+    return [];
   }
 
   setAddresses(walletAddresses: WalletAddress[]): void {
@@ -43,8 +61,8 @@ export default class MockedWallet extends WalletService {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  sign(tx: Tx): Promise<TrezorSignedTx | LedgerSignedTx> {
-    return new Promise<TrezorSignedTx | LedgerSignedTx>((resolve, reject) => {
+  sign(tx: Tx): Promise<SignedTx> {
+    return new Promise<SignedTx>((resolve, reject) => {
       if (this.testCase.signedTx instanceof Error) {
         reject(this.testCase.signedTx);
       } else {

@@ -17,9 +17,9 @@ export default class TxFeeService {
       }
       ApiService.estimateFee(TxFeeService.getMiningSpeedBlock(feeLevel))
         .then((feePerByte: SatoshiBig) => {
-          const checkedFeePerByte = TxFeeService.getCheckedFeePerKb(feePerByte, feeLevel);
+          const checkedFeePerByte = TxFeeService.getCheckedFeePerByte(feePerByte, feeLevel);
           const baseFee = checkedFeePerByte.mul(constants.BITCOIN_TX_HEADER_SIZE_IN_BYTES
-            + constants.BITCOIN_TX_OUTPUT_SIZE_IN_BYTES);
+            + (constants.BITCOIN_TX_OUTPUT_SIZE_IN_BYTES * constants.PEGIN_OUTPUTS));
           const feePerInput = checkedFeePerByte
             .mul(constants.BITCOIN_TX_INPUT_SIZE_IN_BYTES);
           const { selectedUtxoList, enoughBalance } = TxFeeService
@@ -52,8 +52,10 @@ export default class TxFeeService {
   }
 
   private static selectOptimalInputs(
-    utxoList: Utxo[], amountToSendInSatoshis: SatoshiBig,
-    baseFee: SatoshiBig, feePerInput: SatoshiBig,
+    utxoList: Utxo[],
+    amountToSendInSatoshis: SatoshiBig,
+    baseFee: SatoshiBig,
+    feePerInput: SatoshiBig,
   ): {selectedUtxoList: Utxo[]; enoughBalance: boolean} {
     const inputs: Utxo[] = [];
     let remainingSatoshisToBePaid = amountToSendInSatoshis.plus(baseFee);
@@ -90,18 +92,18 @@ export default class TxFeeService {
     return blockNumber;
   }
 
-  private static getCheckedFeePerKb(feeFromService: SatoshiBig, feeLevel: MiningSpeedFee)
+  private static getCheckedFeePerByte(feeFromService: SatoshiBig, feeLevel: MiningSpeedFee)
     : SatoshiBig {
     let minFee = 0;
     switch (feeLevel) {
       case constants.BITCOIN_FAST_FEE_LEVEL:
-        minFee = EnvironmentAccessorService.getEnvironmentVariables().minFeePerKb.fast;
+        minFee = EnvironmentAccessorService.getEnvironmentVariables().minFeeSatPerByte.fast;
         break;
       case constants.BITCOIN_AVERAGE_FEE_LEVEL:
-        minFee = EnvironmentAccessorService.getEnvironmentVariables().minFeePerKb.average;
+        minFee = EnvironmentAccessorService.getEnvironmentVariables().minFeeSatPerByte.average;
         break;
       case constants.BITCOIN_SLOW_FEE_LEVEL:
-        minFee = EnvironmentAccessorService.getEnvironmentVariables().minFeePerKb.slow;
+        minFee = EnvironmentAccessorService.getEnvironmentVariables().minFeeSatPerByte.slow;
         break;
       default:
     }

@@ -3,7 +3,7 @@
     <v-row class="mx-0 d-flex justify-center">
       <v-col cols="10" lg="8" xl="6" class="d-flex justify-center">
         <h1 class="text-center">
-          Your BTC is on its way!
+          Your {{environmentContext.getBtcTicker()}} is on its way!
         </h1>
       </v-col>
     </v-row>
@@ -15,7 +15,7 @@
         Click
         <a
           class="d-inline blackish"
-          :href=appConstants.GETTING_FUNDS_DOCUMENTATION_URL
+          :href=appConstants.DERIVE_BTC_ADDRESS_DOCUMENTATION_URL
           target="_blank" >here</a>
         to know how to get your funds at the end of the peg-out process.
       </p>
@@ -41,80 +41,99 @@
 
 <script lang="ts">
 import {
-  Component, Prop,
-  Vue,
-} from 'vue-property-decorator';
-import { Machine } from '@/common/utils';
+  computed, PropType, defineComponent, onBeforeMount, ref,
+} from 'vue';
+import { useRouter } from 'vue-router';
+import { Machine, addTag } from '@/common/utils';
 import { TxStatusType } from '@/common/types/store';
 import { TxSummaryOrientation } from '@/common/types/Status';
-import { Getter, State, Action } from 'vuex-class';
 import {
-  NormalizedSummary, PegOutTxState, SatoshiBig, SessionState, WeiBig,
+  NormalizedSummary, PegOutTxState, SatoshiBig,
 } from '@/common/types';
 import TxSummaryFixed from '@/common/components/exchange/TxSummaryFixed.vue';
 import * as constants from '@/common/store/constants';
+import {
+  useAction, useGetter, useState, useStateAttribute,
+} from '@/common/store/helper';
+import EnvironmentContextProviderService from '@/common/providers/EnvironmentContextProvider';
 
-@Component({
+export default defineComponent({
+  name: 'ConfirmationPegout',
   components: {
     TxSummaryFixed,
   },
-})
+  props: {
+    confirmTxState: {
+      type: Object as PropType<Machine<'idle' | 'loading' | 'error' | 'goingHome'>>,
+      required: true,
+    },
+  },
+  setup() {
+    const appConstants = constants;
+    const injectedProvider = ref('');
+    const typeSummary = TxStatusType.PEGOUT;
+    const orientationSummary = TxSummaryOrientation.HORIZONTAL;
+    const router = useRouter();
+    const pegoutTxState = useState<PegOutTxState>('pegOutTx');
+    const btcDerivedAddress = useStateAttribute<string>('web3Session', 'btcDerivedAddress');
+    const account = useStateAttribute<string>('web3Session', 'account');
+    const clearStatus = useAction('status', constants.STATUS_CLEAR);
+    const estimatedBtcToReceive = useGetter<SatoshiBig>('pegOutTx', constants.PEGOUT_TX_GET_ESTIMATED_BTC_TO_RECEIVE);
+    const isLedgerConnected = useGetter<boolean>('web3Session', constants.SESSION_IS_LEDGER_CONNECTED);
+    const isTrezorConnected = useGetter<boolean>('web3Session', constants.SESSION_IS_TREZOR_CONNECTED);
+    const isMetamaskConnected = useGetter<boolean>('web3Session', constants.SESSION_IS_METAMASK_CONNECTED);
+    const environmentContext = EnvironmentContextProviderService.getEnvironmentContext();
 
-export default class Confirmation extends Vue {
-  appConstants = constants;
-
-  typeSummary = TxStatusType.PEGOUT;
-
-  orientationSummary = TxSummaryOrientation.HORIZONTAL;
-
-  @State('pegOutTx') pegoutTxState!: PegOutTxState;
-
-  @State('web3Session') session !: SessionState;
-
-  @Action(constants.PEGOUT_TX_CLEAR, { namespace: 'pegOutTx' }) clearPegOut !: () => void;
-
-  @Getter(constants.PEGOUT_TX_GET_SAFE_TX_FEE, { namespace: 'pegOutTx' }) safeFee !: WeiBig;
-
-  @Getter(constants.PEGOUT_TX_GET_ESTIMATED_BTC_TO_RECEIVE, { namespace: 'pegOutTx' }) estimatedBtcToReceive !: SatoshiBig;
-
-  @Action(constants.STATUS_CLEAR, { namespace: 'pegOutTx' }) clearPegOutTx !: () => Promise<void>;
-
-  @Prop() confirmTxState!: Machine<
-    'idle'
-    | 'loading'
-    | 'error'
-    | 'goingHome'
-    >;
-
-  VALUE_INCOMPLETE_MESSAGE = 'Not Found';
-
-  backPage = 'PegOutForm';
-
-  goToHome() {
-    this.clearPegOut();
-    this.$router.push({
-      name: 'Home',
+    const currentWallet = computed(() => {
+      if (isLedgerConnected.value) {
+        return constants.WALLET_NAMES.LEDGER;
+      }
+      if (isTrezorConnected.value) {
+        return constants.WALLET_NAMES.TREZOR;
+      }
+      if (isMetamaskConnected.value) {
+        return constants.WALLET_NAMES.METAMASK;
+      }
+      if (injectedProvider.value === appConstants.RLOGIN_LIQUALITY_WALLET) {
+        return constants.WALLET_NAMES.LIQUALITY;
+      }
+      return '';
     });
-  }
 
-  goToStatus() {
-    this.clearPegOutTx();
-    this.$router.push({
-      name: 'Status',
-      params: { txId: String(this.pegoutTxState.txHash) },
-    });
-  }
+    const successPegOutSummary = computed((): NormalizedSummary => ({
+      amountFromString: pegoutTxState.value.amountToTransfer.toRBTCTrimmedString(),
+      amountReceivedString: estimatedBtcToReceive.value.toBTCTrimmedString(),
+      estimatedFee: Number(pegoutTxState.value.btcEstimatedFee.toBTCTrimmedString()),
+      recipientAddress: btcDerivedAddress.value,
+      senderAddress: account.value,
+      txId: pegoutTxState.value.txHash,
+      gas: Number(pegoutTxState.value.efectivePaidFee?.toRBTCTrimmedString()),
+    }));
 
-  get successPegOutSummary(): NormalizedSummary {
+    function goToStatus() {
+      clearStatus();
+      router.push({
+        name: 'Status',
+        params: { txId: String(pegoutTxState.value.txHash) },
+      });
+    }
+
+    function appendClarityScript(): void {
+      addTag(constants.OPERATION_TYPE, TxStatusType.PEGOUT);
+      addTag(constants.WALLET_NAME, `${currentWallet.value}`);
+      addTag(constants.OPERATION_AMOUNT, `${pegoutTxState.value.amountToTransfer.toRBTCTrimmedString()}`);
+    }
+
+    onBeforeMount(appendClarityScript);
+
     return {
-      amountFromString: this.pegoutTxState.amountToTransfer.toRBTCTrimmedString(),
-      amountReceivedString: this.estimatedBtcToReceive.toBTCTrimmedString(),
-      estimatedFee: Number(this.pegoutTxState.btcEstimatedFee.toBTCTrimmedString()),
-      recipientAddress: this.session.btcDerivedAddress,
-      senderAddress: this.session.account,
-      txId: this.pegoutTxState.txHash,
-      gas: Number(this.pegoutTxState.efectivePaidFee?.toRBTCTrimmedString()),
+      environmentContext,
+      appConstants,
+      successPegOutSummary,
+      typeSummary,
+      orientationSummary,
+      goToStatus,
     };
-  }
-}
+  },
+});
 </script>

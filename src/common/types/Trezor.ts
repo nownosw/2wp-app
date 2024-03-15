@@ -1,4 +1,4 @@
-import { TxInputType, TxOutputType } from 'trezor-connect';
+import { PROTO } from '@trezor/connect-web';
 import { Tx } from '@/common/types/Common';
 
 export type InputScriptType =
@@ -8,16 +8,14 @@ export type InputScriptType =
 
 export interface TrezorTx extends Tx {
   coin: string;
-  inputs: TxInputType[];
-  outputs: TxOutputType[];
+  inputs: PROTO.TxInputType[];
+  outputs: PROTO.TxOutputType[];
   version: number;
 }
 
-export interface TrezorSignedTx {
-  success: boolean;
-  id?: number;
-  payload: {
-    signatures: string[];
-    serializedTx: string;
-  };
+export interface GetAddress {
+  path: string | number[];
+  address?: string;
+  showOnTrezor?: boolean;
+  coin?: string;
 }

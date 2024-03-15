@@ -12,7 +12,6 @@ import { EnvironmentAccessorService } from '@/common/services/enviroment-accesso
 
 const bip32 = BIP32Factory(ecc);
 
-// eslint-disable-next-line no-shadow
 export enum NETWORKS {
   MAINNET = 'mainnet',
   TESTNET = 'testnet',
@@ -133,7 +132,10 @@ function addressFromExtPubKey({
 }
 
 export const deriveBatchAddresses = (
-  xpub: string, purpose: Purpose, startFrom: number, batchSize: number,
+  xpub: string,
+  purpose: Purpose,
+  startFrom: number,
+  batchSize: number,
 ): Array<WalletAddress> => {
   const addresses: Array<WalletAddress> = [];
   for (let keyIndex = startFrom; keyIndex < startFrom + batchSize; keyIndex += 1) {

@@ -1,4 +1,4 @@
-import { AppNetwork } from '@/common/types/Common';
+import { AppNetwork } from '@/common/types';
 
 export class EnvironmentVariables {
   public vueAppCoin: AppNetwork;
@@ -19,13 +19,15 @@ export class EnvironmentVariables {
 
   public vueAppRskExplorer: string;
 
-  public vueAppClarityId: number;
+  public vueAppHotjarId: number;
+
+  public vueAppClarityId: string;
 
   public pegoutMinValue: number;
 
   public pegoutMaxValue: number;
 
-  public minFeePerKb: {
+  public minFeeSatPerByte: {
     fast: number;
     average: number;
     slow: number;
@@ -58,18 +60,19 @@ export class EnvironmentVariables {
     this.vueAppWalletAddressPerCall = Number(process.env.VUE_APP_WALLET_ADDRESS_PER_CALL)
       || defaultValues.vueAppWalletAddressPerCall;
     this.vueAppRskExplorer = process.env.VUE_APP_RSK_EXPLORER || defaultValues.vueAppRskExplorer;
+    this.vueAppHotjarId = process.env.VUE_APP_HOTJAR_ID || defaultValues.vueAppHotjarId;
     this.vueAppClarityId = process.env.VUE_APP_CLARITY_ID || defaultValues.vueAppClarityId;
     this.pegoutMinValue = process.env.VUE_APP_PEGOUT_MIN_AMOUNT_ALLOWED_IN_RBTC
       || defaultValues.pegoutMinValue;
     this.pegoutMaxValue = process.env.VUE_APP_PEGOUT_MAX_AMOUNT_ALLOWED_IN_RBTC
       || defaultValues.pegoutMaxValue;
-    this.minFeePerKb = {
-      fast: process.env.VUE_APP_FEE_PER_KB_FAST_MIN
-        || (defaultValues.minFeePerKb ? defaultValues.minFeePerKb.fast : 0),
-      average: process.env.VUE_APP_FEE_PER_KB_AVERAGE_MIN
-        || (defaultValues.minFeePerKb ? defaultValues.minFeePerKb.average : 0),
-      slow: process.env.VUE_APP_FEE_PER_KB_SLOW_MIN
-        || (defaultValues.minFeePerKb ? defaultValues.minFeePerKb.slow : 0),
+    this.minFeeSatPerByte = {
+      fast: process.env.VUE_APP_MIN_FEE_SAT_PER_BYTE_FAST
+        || (defaultValues.minFeeSatPerByte ? defaultValues.minFeeSatPerByte.fast : 0),
+      average: process.env.VUE_APP_MIN_FEE_SAT_PER_BYTE_AVG
+        || (defaultValues.minFeeSatPerByte ? defaultValues.minFeeSatPerByte.average : 0),
+      slow: process.env.VUE_APP_MIN_FEE_SAT_PER_BYTE_SLOW
+        || (defaultValues.minFeeSatPerByte ? defaultValues.minFeeSatPerByte.slow : 0),
     };
     this.miningSpeedBlock = {
       fast: process.env.VUE_APP_FAST_MINING_BLOCK
@@ -79,7 +82,7 @@ export class EnvironmentVariables {
       slow: process.env.VUE_APP_SLOW_MINING_BLOCK
         || (defaultValues.miningSpeedBlock ? defaultValues.miningSpeedBlock.slow : 0),
     };
-    this.burnDustValue = Number(process.env.BURN_DUST_VALUE) || defaultValues.burnDustValue;
+    this.burnDustValue = Number(process.env.VUE_APP_BURN_DUST_VALUE) || defaultValues.burnDustValue;
     this.maxAmountAllowedInSatoshis = process.env.VUE_APP_MAX_AMOUNT_ALLOWED_IN_SATOSHI
       || defaultValues.maxAmountAllowedInSatoshis;
   }

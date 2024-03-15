@@ -1,12 +1,12 @@
 import { ActionTree } from 'vuex';
+import Web3 from 'web3';
+import axios, { AxiosResponse } from 'axios';
 import * as constants from '@/common/store/constants';
 import {
   MiningSpeedFee, PegOutTxState, RootState, SatoshiBig, SessionState, WeiBig,
 } from '@/common/types';
 import { EnvironmentAccessorService } from '@/common/services/enviroment-accessor.service';
-import Web3 from 'web3';
-import { getEstimatedFee } from '@/common/utils';
-import axios, { AxiosResponse } from 'axios';
+import { getCookie, getEstimatedFee, setCookie } from '@/common/utils';
 
 export const actions: ActionTree<PegOutTxState, RootState> = {
   [constants.PEGOUT_TX_SELECT_FEE_LEVEL]: ({ commit }, feeLevel: MiningSpeedFee) => {
@@ -18,6 +18,7 @@ export const actions: ActionTree<PegOutTxState, RootState> = {
   [constants.PEGOUT_TX_CALCULATE_FEE]: async ({ commit, state, rootState }) => {
     const web3 = rootState.web3Session?.web3 as Web3;
     const sender = rootState.web3Session?.account as string;
+
     try {
       // RSK Fee
       const gas = await web3.eth.estimateGas({
@@ -29,19 +30,25 @@ export const actions: ActionTree<PegOutTxState, RootState> = {
       const gasPrice = Number(await web3.eth.getGasPrice());
       const calculatedFee = new WeiBig(gasPrice * gas, 'wei');
       commit(constants.PEGOUT_TX_SET_RSK_ESTIMATED_FEE, calculatedFee);
-      // BTC Fee
-      const estimatedFee = await getEstimatedFee();
-      commit(constants.PEGOUT_TX_SET_BTC_ESTIMATED_FEE, estimatedFee);
     } catch (e) {
       commit(constants.PEGOUT_TX_SET_GAS, 0);
       commit(constants.PEGOUT_TX_SET_RSK_ESTIMATED_FEE, 0);
+    }
+
+    try {
+      // BTC Fee
+      const estimatedFee = await getEstimatedFee();
+      commit(constants.PEGOUT_TX_SET_BTC_ESTIMATED_FEE, new SatoshiBig(estimatedFee, 'satoshi'));
+    } catch (e) {
       commit(constants.PEGOUT_TX_SET_BTC_ESTIMATED_FEE, new SatoshiBig(0, 'satoshi'));
     }
   },
   [constants.PEGOUT_TX_ADD_PEGOUT_CONFIGURATION]: ({ commit }) => {
     commit(constants.PEGOUT_TX_SET_PEGOUT_CONFIGURATION, {
-      minValue: new WeiBig(EnvironmentAccessorService.getEnvironmentVariables().pegoutMinValue, 'rbtc'),
-      maxValue: new WeiBig(EnvironmentAccessorService.getEnvironmentVariables().pegoutMaxValue, 'rbtc'),
+      minValue:
+        new WeiBig(EnvironmentAccessorService.getEnvironmentVariables().pegoutMinValue, 'rbtc'),
+      maxValue:
+        new WeiBig(EnvironmentAccessorService.getEnvironmentVariables().pegoutMaxValue, 'rbtc'),
       bridgeContractAddress: constants.BRIDGE_CONTRACT_ADDRESS,
     });
   },
@@ -67,7 +74,10 @@ export const actions: ActionTree<PegOutTxState, RootState> = {
           web3.eth.getGasPrice(),
         ])
           .then(([tx, gasPrice]) => {
-            commit(constants.PEGOUT_TX_SET_EFECTIVE_FEE, new WeiBig(Number(gasPrice) * tx.gasUsed, 'wei'));
+            commit(
+              constants.PEGOUT_TX_SET_EFECTIVE_FEE,
+              new WeiBig(Number(gasPrice) * tx.gasUsed, 'wei'),
+            );
           })
           .catch((e) => {
             console.warn(e);
@@ -78,9 +88,20 @@ export const actions: ActionTree<PegOutTxState, RootState> = {
   [constants.PEGOUT_TX_CLEAR]: ({ commit }) => {
     commit(constants.PEGOUT_TX_CLEAR_STATE);
   },
-  [constants.PEGOUT_TX_ADD_BITCOIN_PRICE]: ({ commit }) => axios.get('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin&order=market_cap_desc&per_page=100&page=1&sparkline=false')
-    .then((response: AxiosResponse) => {
-      const [result] = response.data;
-      commit(constants.PEGOUT_TX_SET_BITCOIN_PRICE, result.current_price);
-    }),
+  [constants.PEGOUT_TX_ADD_BITCOIN_PRICE]: ({ commit }) => {
+    const storedPrice = getCookie('BtcPrice');
+    if (storedPrice) {
+      commit(constants.PEGOUT_TX_SET_BITCOIN_PRICE, Number(storedPrice));
+    } else {
+      axios.get(constants.COINGECKO_API_URL)
+        .then((response: AxiosResponse) => {
+          const [result] = response.data;
+          setCookie('BtcPrice', result.current_price, constants.COOKIE_EXPIRATION_HOURS);
+          commit(constants.PEGOUT_TX_SET_BITCOIN_PRICE, result.current_price);
+        })
+        .catch(() => {
+          commit(constants.PEGOUT_TX_SET_BITCOIN_PRICE, 0);
+        });
+    }
+  },
 };
