@@ -19,6 +19,8 @@ The value of these variables are used in **environment-variables.ts** file.
 |VUE_APP_MIN_FEE_SAT_PER_BYTE_FAST    | `8`     | Min fee rate (sats/byte) required to broadcast the transaction                                                 |
 |VUE_APP_MIN_FEE_SAT_PER_BYTE_AVG   | `4`          | Min fee rate (sats/byte) required to broadcast the transaction                                                         |
 |VUE_APP_MIN_FEE_SAT_PER_BYTE_SLOW   | `1`          | Min fee rate (sats/byte) required to broadcast the transaction                                                          |
+|VUE_APP_LBC_ADDRESS   | `0xc2A630c053D12D63d32b025082f6Ba268db18300`          | Liquidity bridge contract address on the flyover protocol         |
+|VUE_APP_DEBUG_MODE   | `false`          | enable developer messages for debuging         |
 
 ## Example for .env.local.test file
 
@@ -30,7 +32,7 @@ VUE_APP_API_BASE_URL=http://localhost:3000
 VUE_APP_RSK_NODE_HOST=
 VUE_APP_HOTJAR_ID=
 VUE_APP_CLARITY_ID=
-VUE_APP_RSK_EXPLORER=https://explorer.testnet.rsk.co/
+VUE_APP_RSK_EXPLORER=https://explorer.testnet.rootstock.io/
 VUE_APP_WALLET_ADDRESSES_HARD_STOP=100
 VUE_APP_WALLET_ADDRESS_PER_CALL=5
 VUE_APP_PEGOUT_MIN_AMOUNT_ALLOWED_IN_RBTC=0.005
@@ -39,4 +41,6 @@ VUE_APP_BURN_DUST_VALUE=30000
 VUE_APP_MIN_FEE_SAT_PER_BYTE_FAST=8
 VUE_APP_MIN_FEE_SAT_PER_BYTE_AVG=4
 VUE_APP_MIN_FEE_SAT_PER_BYTE_SLOW=1
+VUE_APP_LBC_ADDRESS='0xc2A630c053D12D63d32b025082f6Ba268db18300'
+VUE_APP_DEBUG_MODE='false'
 ```

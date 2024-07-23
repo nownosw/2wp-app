@@ -117,7 +117,7 @@ export default defineComponent({
 
     const computedRskAddress = computed<string>((): string => {
       if (rskAddressSelected.value !== ''
-        && rskUtils.isAddress(rskAddressSelected)) {
+        && rskUtils.isAddress(rskAddressSelected.value)) {
         return rskAddressSelected.value;
       }
       if (useWeb3Wallet.value && web3Address.value !== '') {
@@ -134,29 +134,33 @@ export default defineComponent({
             && computedRskAddress.value.startsWith('0x'),
     );
 
-    function regexValidationAddress() {
-      const regx = /^(0x[a-fA-F0-9]{64}|[a-fA-F0-9]{64})$/;
-      return regx.test(rskAddressSelected.value);
+    const isValidCheckSum = computed(() => (
+      rskUtils.toChecksumAddress(computedRskAddress.value, CHAIN_ID)
+      === computedRskAddress.value));
+
+    function validateAddress() {
+      // RSK Mainnet 30
+      // RSK Testnet 31
+      return rskUtils.isAddress(computedRskAddress.value);
     }
 
     function checkStep() {
-      let state;
+      let state = 'valid';
       if (!isValidPegInAddress.value) {
         setRskAddress('');
         state = 'invalid';
       } else {
         setRskAddress(computedRskAddress.value);
-        state = isValidRskAddress.value ? 'valid' : 'warning';
       }
       context.emit('state', state);
     }
 
     const validAddressMessage = computed(() => {
       let message = '';
-      if (!regexValidationAddress()) {
-        message = 'The RSK recipient address must be a valid RSK address';
-      } else if (!isValidPegInAddress.value) message = 'This is an invalid address';
-      else if (!isValidRskAddress.value) message = `This may not be a valid address on the ${environmentContext.getRskText()} network. Please check.`;
+      const errorMessage = 'Please double check your RSK address before you continue';
+      if (!validateAddress()
+      || (!isValidPegInAddress.value)
+      || (!isValidRskAddress.value || !isValidCheckSum.value)) message = errorMessage;
       checkStep();
       return message;
     });

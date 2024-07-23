@@ -8,13 +8,23 @@ import {
 import { WalletService } from '@/common/services/index';
 import * as constants from '@/common/store/constants';
 import { LeatherTx } from '@/pegin/middleware/TxBuilder/LeatherTxBuilder';
+import { AppConfig, UserSession, showConnect } from '@stacks/connect';
 
 export default class LeatherService extends WalletService {
-  private btcProvider = window.btc;
+  private btcProvider;
+
+  userSession: UserSession;
+
+  constructor() {
+    super();
+    this.btcProvider = window.btc;
+    const appConfig = new AppConfig();
+    this.userSession = new UserSession({ appConfig });
+  }
 
   // eslint-disable-next-line class-methods-use-this
-  name(): string {
-    return constants.WALLET_NAMES.LEATHER.short_name;
+  name() {
+    return constants.WALLET_NAMES.LEATHER;
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -45,6 +55,7 @@ export default class LeatherService extends WalletService {
           },
         },
         fee: true,
+        fullAmount: false,
       },
     ];
   }
@@ -52,7 +63,7 @@ export default class LeatherService extends WalletService {
   // eslint-disable-next-line class-methods-use-this
   isConnected(): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
-      resolve(true);
+      resolve(this.userSession.isUserSignedIn());
     });
   }
 
@@ -60,8 +71,22 @@ export default class LeatherService extends WalletService {
   reconnect(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       try {
-        this.btcProvider = window.btc;
-        resolve();
+        showConnect({
+          userSession: this.userSession,
+          appDetails: {
+            name: 'App Name',
+            icon: `${window.location.origin}/favicon.ico`,
+          },
+          onFinish: () => {
+            this.btcProvider = window.btc;
+            resolve();
+          },
+          onCancel: () => {
+            console.log('User closed the modal');
+            reject(new Error('User closed the modal'));
+          },
+        });
+        // resolve();
       } catch (e) {
         reject();
       }
@@ -101,7 +126,11 @@ export default class LeatherService extends WalletService {
           resolve({ signedTx: signedPsbt });
         })
         .catch((e) => {
-          reject(e);
+          if (e.error.code) {
+            reject(new Error(e.error.message));
+          } else {
+            reject(e);
+          }
         });
     });
   }

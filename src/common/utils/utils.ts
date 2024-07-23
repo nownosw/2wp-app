@@ -12,6 +12,7 @@ import {
   SatoshiBig,
 } from '@/common/types';
 import { BridgeService } from '@/common/services/BridgeService';
+import moment from 'moment';
 
 export function getAccountType(address: string, network: AppNetwork): string {
   const [legacyTestReg, segwitTestReg, nativeTestReg] = network === constants.BTC_NETWORK_MAINNET
@@ -169,6 +170,21 @@ export function setStatusMessage(txType: string, status: string): TxStatusMessag
         default:
       }
       break;
+    case TxStatusType.FLYOVER_PEGOUT:
+      switch (status) {
+        case constants.FlyoverPegoutStatus.PENDING:
+          statusMessage = 'Your peg-out is being processed';
+          activeMessageStyle = 'statusProgress';
+          isRejected = false;
+          break;
+        case constants.FlyoverPegoutStatus.COMPLETED:
+          statusMessage = 'Your transaction was successfully processed!';
+          activeMessageStyle = 'statusSuccess';
+          isRejected = false;
+          break;
+        default:
+      }
+      break;
     case TxStatusType.PEGOUT:
       switch (status) {
         case PegoutStatus.PENDING:
@@ -288,4 +304,22 @@ export function setCookie(cookieName: string, cookieValue: number, expirationHou
   d.setTime(d.getTime() + (expirationHours * 60 * 60 * 1000));
   const expires = `expires=${d.toUTCString()}`;
   document.cookie = `${cookieName}=${cookieValue};${expires};path=/`;
+}
+
+export function blockConfirmationsToTimeString(confirmations: number): string {
+  const BLOCK_CONFIRMATION_TIME_IN_MINUTES = 10;
+  return moment.duration(confirmations * BLOCK_CONFIRMATION_TIME_IN_MINUTES, 'minutes').humanize(false, { h: 34 });
+}
+
+export function awaitTimeout(ms: number) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      reject(new Error('Request timed out'));
+    }, ms);
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function promiseWithTimeout(promise: Promise<any>, timeoutMs: number) {
+  return Promise.race([promise, awaitTimeout(timeoutMs)]);
 }

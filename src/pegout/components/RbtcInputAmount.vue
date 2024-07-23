@@ -88,7 +88,6 @@
 </template>
 
 <script lang="ts">
-import Web3 from 'web3';
 import {
   computed, ref, watch, defineComponent,
 } from 'vue';
@@ -98,9 +97,10 @@ import * as constants from '@/common/store/constants';
 import { isRBTCAmountValidRegex } from '@/common/utils';
 import {
   MiningSpeedFee,
-  PegOutTxState, SatoshiBig, SessionState, WeiBig,
+  PegOutTxState, SessionState, WeiBig,
 } from '@/common/types';
 import { useAction, useGetter, useState } from '@/common/store/helper';
+import { providers } from 'ethers';
 
 export default defineComponent({
   name: 'RbtcInputAmount',
@@ -123,7 +123,6 @@ export default defineComponent({
     const calculateTxFee = useAction('pegOutTx', constants.PEGOUT_TX_CALCULATE_FEE);
     const setValidAmount = useAction('pegOutTx', constants.PEGOUT_TX_ADD_VALID_AMOUNT);
     const safeTxFee = useGetter<WeiBig>('pegOutTx', constants.PEGOUT_TX_GET_SAFE_TX_FEE);
-    const estimatedBtcToReceive = useGetter<SatoshiBig>('pegOutTx', constants.PEGOUT_TX_GET_ESTIMATED_BTC_TO_RECEIVE);
     const account = computed<string>(() => web3SessionState.value.account as string);
     const selectedFee = computed<MiningSpeedFee>(
       () => pegOutTxState.value.selectedFee as MiningSpeedFee,
@@ -201,21 +200,21 @@ export default defineComponent({
     }
 
     async function calculateFeeByAmount(amount: WeiBig): Promise<WeiBig> {
-      const web3 = web3SessionState.value.web3 as Web3;
+      const provider = web3SessionState.value.ethersProvider as providers.Web3Provider;
       const sender = web3SessionState.value.account;
       let finalFee: WeiBig;
-      const gas = Number(await web3.eth.estimateGas({
+      const gas = await provider.estimateGas({
         from: sender,
         to: pegOutTxState.value.pegoutConfiguration.bridgeContractAddress,
         value: amount.toWeiString(),
-      }));
+      });
 
-      const gasPrice = Number(await web3.eth.getGasPrice());
-      const averageGasPrice = Math.round(gasPrice * (3 / 2));
+      const gasPrice = await provider.getGasPrice();
+      const averageGasPrice = BigInt(Math.round(Number(gasPrice.toBigInt() * (3n / 2n))));
       const calculatedFees = {
-        slow: new WeiBig(gasPrice * gas, 'wei'),
-        average: new WeiBig(averageGasPrice * gas, 'wei'),
-        fast: new WeiBig(gasPrice * gas * 2, 'wei'),
+        slow: new WeiBig(gasPrice.toBigInt() * gas.toBigInt(), 'wei'),
+        average: new WeiBig(averageGasPrice * gas.toBigInt(), 'wei'),
+        fast: new WeiBig(gasPrice.toBigInt() * gas.toBigInt() * 2n, 'wei'),
       };
 
       switch (pegOutTxState.value.selectedFee) {
@@ -280,7 +279,6 @@ export default defineComponent({
       focus,
       updateStore,
       blockLetterKeyDown,
-      estimatedBtcToReceive,
       setMax,
       stepState,
       amountErrorMessage,

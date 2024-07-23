@@ -1,5 +1,6 @@
 import SatoshiBig from '@/common/types/SatoshiBig';
 import { Utxo } from '@/common/types/pegInTx';
+import WeiBig from './WeiBig';
 
 export interface Tx {
   coin: string;
@@ -116,7 +117,7 @@ export interface NormalizedSummary {
   recipientAddress: string;
   senderAddress?: string;
   txId?: string;
-  gas?: number;
+  gas?: WeiBig;
   refundAddress?: string;
   selectedAccount?: string;
   federationAddress?: string;
@@ -124,3 +125,9 @@ export interface NormalizedSummary {
 
 export type AddressType = 'BITCOIN_LEGACY_ADDRESS' | 'BITCOIN_SEGWIT_ADDRESS' | 'BITCOIN_NATIVE_SEGWIT_ADDRESS' |
  'BITCOIN_MULTISIGNATURE_ADDRESS' | 'BITCOIN_UNKNOWN_ADDRESS_TYPE';
+
+export interface ObjectDifference {
+  key: string;
+  oldValue: unknown;
+  newValue: unknown;
+}

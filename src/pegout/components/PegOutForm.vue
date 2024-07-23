@@ -188,9 +188,6 @@ export default defineComponent({
       if (isMetamaskConnected.value) {
         return constants.WALLET_NAMES.METAMASK.short_name;
       }
-      if (injectedProvider.value === appConstants.RLOGIN_LIQUALITY_WALLET) {
-        return constants.WALLET_NAMES.LIQUALITY.short_name;
-      }
       return '';
     });
     const authorizedWalletToSignMessage = computed(
@@ -216,7 +213,7 @@ export default defineComponent({
       fee: Number(pegOutTxState.value.btcEstimatedFee.toBTCTrimmedString()),
       recipientAddress: session.value.btcDerivedAddress,
       senderAddress: session.value.account,
-      gas: Number(safeFee.value.toRBTCTrimmedString()),
+      gas: safeFee.value,
     }));
 
     function closeAddressDialog() {
@@ -240,6 +237,7 @@ export default defineComponent({
         name: 'PegOutSuccess',
         params: {
           wallet: currentWallet.value,
+          type: constants.POWPEG,
         },
       });
       context.emit('changePage', nextPage);

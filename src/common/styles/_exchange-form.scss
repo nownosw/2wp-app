@@ -332,12 +332,12 @@
   }
 }
 
-.label-liquality {
+.label-segwit {
   font-size: 14px !important;
 }
 
 .form-field {
-  .mark, .label-liquality, .row {
+  .mark, .label-segwit, .row {
     background-color:#F8F5F5;
     padding:9px;
     margin: 0px;
@@ -409,4 +409,25 @@
 
 .v-field__input {
   padding: 0 !important;
+}
+
+.flyover-input {
+  .v-field__input {
+    padding-inline-start: 6px !important;
+    padding-inline-end: 6px !important;
+  }
+}
+.pegout-form-heading {
+  font-size: 36px;
+  line-height: 45px;
+  color: #000000;
+}
+
+.form-footer {
+  margin-top: 80px !important;
+}
+
+.label {
+  font-size: 13px !important;
+  color: rgba(0,0,0,0.33) !important;
 }

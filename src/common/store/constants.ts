@@ -1,7 +1,6 @@
 export const WALLET_NAMES = {
   LEDGER: { formal_name: 'Ledger', short_name: 'ledger', long_name: 'WALLET_LEDGER' },
   TREZOR: { formal_name: 'Trezor', short_name: 'trezor', long_name: 'WALLET_TREZOR' },
-  LIQUALITY: { formal_name: 'Liquality', short_name: 'liquality', long_name: 'WALLET_LIQUALITY' },
   METAMASK: { formal_name: 'Metamask', short_name: 'metamask', long_name: 'WALLET_METAMASK' },
   LEATHER: { formal_name: 'Leather', short_name: 'leather', long_name: 'WALLET_LEATHER' },
 } as const;
@@ -9,7 +8,6 @@ export const WALLET_NAMES = {
 export const OPERATION_TYPE = 'OPERATION_TYPE';
 export const OPERATION_AMOUNT = 'OPERATION_AMOUNT';
 
-export const RLOGIN_LIQUALITY_WALLET = 'Liquality';
 export const DERIVE_BTC_ADDRESS_DOCUMENTATION_URL = 'https://dev.rootstock.io/guides/two-way-peg-app/pegout/deriving-electrum/';
 export const RLOGIN_METAMASK_WALLET = 'MetaMask';
 
@@ -67,6 +65,18 @@ export const PEGOUT_TX_ADD_PEGOUT_CONFIGURATION = 'PEGOUT_TX_ADD_PEGOUT_CONFIGUR
 export const PEGOUT_TX_SET_PEGOUT_CONFIGURATION = 'PEGOUT_TX_SET_PEGOUT_CONFIGURATION';
 export const PEGOUT_TX_SEND = 'PEGOUT_TX_SEND';
 
+// Flyover PegOut actions
+export const FLYOVER_PEGOUT_INIT = 'FLYOVER_PEGOUT_INIT';
+export const FLYOVER_PEGOUT_GET_PROVIDERS = 'FLYOVER_PEGOUT_GET_PROVIDERS';
+export const FLYOVER_PEGOUT_ADD_AMOUNT = 'FLYOVER_PEGOUT_ADD_AMOUNT';
+export const FLYOVER_PEGOUT_GET_QUOTES = 'FLYOVER_PEGOUT_GET_QUOTES';
+export const FLYOVER_PEGOUT_USE_LIQUIDITY_PROVIDER = 'FLYOVER_PEGOUT_USE_LIQUIDITY_PROVIDER';
+export const FLYOVER_PEGOUT_ACCEPT_AND_SEND_QUOTE = 'FLYOVER_PEGOUT_ACCEPT_AND_SEND_QUOTE';
+export const FLYOVER_PEGOUT_CLEAR_STATE = 'FLYOVER_PEGOUT_CLEAR_STATE';
+export const FLYOVER_PEGOUT_ADD_BTC_ADDRESS = 'FLYOVER_PEGOUT_ADD_BTC_ADDRESS';
+export const FLYOVER_PEGOUT_GET_FINAL_QUOTE = 'FLYOVER_PEGOUT_GET_FINAL_QUOTE';
+export const FLYOVER_PEGOUT_CLEAR_QUOTES = 'FLYOVER_PEGOUT_CLEAR_QUOTES';
+
 // View actions
 export const VIEW_ADD_CURRENT_VIEW = 'VIEW_ADD_CURRENT_VIEW';
 
@@ -118,6 +128,18 @@ export const PEGOUT_TX_SET_GAS = 'PEGOUT_TX_SET_GAS';
 export const PEGOUT_TX_SET_EFECTIVE_FEE = 'PEGOUT_TX_SET_EFECTIVE_FEE';
 export const PEGOUT_TX_CLEAR_STATE = 'PEGOUT_TX_CLEAR_STATE';
 
+// Flyover PegOut mutations
+export const FLYOVER_PEGOUT_SET_SERVICE = 'FLYOVER_PEGOUT_SET_SERVICE';
+export const FLYOVER_PEGOUT_SET_PROVIDERS = 'FLYOVER_PEGOUT_SET_PROVIDERS';
+export const FLYOVER_PEGOUT_SET_AMOUNT = 'FLYOVER_PEGOUT_SET_AMOUNT';
+export const FLYOVER_PEGOUT_SET_QUOTES = 'FLYOVER_PEGOUT_SET_QUOTES';
+export const FLYOVER_PEGOUT_SET_LIQUIDITY_PROVIDER = 'FLYOVER_PEGOUT_SET_LIQUIDITY_PROVIDER';
+export const FLYOVER_PEGOUT_SET_CLEAR_STATE = 'FLYOVER_PEGOUT_SET_CLEAR_STATE';
+export const FLYOVER_PEGOUT_SET_BTC_ADDRESS = 'FLYOVER_PEGOUT_SET_BTC_ADDRESS';
+export const FLYOVER_PEGOUT_SET_TX_HASH = 'FLYOVER_PEGOUT_SET_TX_HASH';
+export const FLYOVER_PEGOUT_SET_SELECTED_QUOTE = 'FLYOVER_PEGOUT_SET_SELECTED_QUOTE';
+export const FLYOVER_PEGOUT_SET_QUOTES_DIFFERENCES = 'FLYOVER_PEGOUT_SET_QUOTES_DIFFERENCES';
+
 // View mutations
 export const VIEW_SET_CURRENT_VIEW = 'VIEW_SET_CURRENT_VIEW';
 
@@ -164,14 +186,19 @@ export const PEGIN_TX_GET_ENOUGH_FEE_VALUE = 'PEGIN_TX_GET_ENOUGH_FEE_VALUE';
 // View getters
 export const VIEW_GET_CURRENT_VIEW = 'VIEW_GET_CURRENT_VIEW';
 export const PEGIN_TX_IS_HD_WALLET = 'PEGIN_TX_IS_HD_WALLET';
+export const PEGIN_TX_IS_SF_WALLET = 'PEGIN_TX_IS_SF_WALLET';
 
 // Session getters
 export const SESSION_IN_TX_FLOW = 'SESSION_IN_TX_FLOW';
 export const SESSION_IS_LEDGER_CONNECTED = 'SESSION_IS_LEDGER_CONNECTED';
 export const SESSION_IS_TREZOR_CONNECTED = 'SESSION_IS_TREZOR_CONNECTED';
 export const SESSION_IS_METAMASK_CONNECTED = 'SESSION_IS_METAMASK_CONNECTED';
-export const SESSION_IS_LIQUALITY_CONNECTED = 'SESSION_IS_LIQUALITY_CONNECTED';
 export const SESSION_IS_RLOGIN_DEFINED = 'SESSION_IS_RLOGIN_DEFINED';
+
+// Flyover PegOut getters
+export const FLYOVER_PEGOUT_GET_PROVIDER_ID = 'FLYOVER_PEGOUT_GET_PROVIDER_ID';
+export const FLYOVER_PEGOUT_GET_SELECTED_QUOTE = 'FLYOVER_PEGOUT_GET_SELECTED_QUOTE';
+export const FLYOVER_PEGOUT_GET_MIN_MAX_VALUES = 'FLYOVER_PEGOUT_GET_MIN_MAX_VALUES';
 
 // environment
 export const BTC_NETWORK_MAINNET = 'main';
@@ -219,6 +246,11 @@ export enum PegStatus {
   ERROR_UNEXPECTED = 'ERROR_UNEXPECTED',
 }
 
+export enum FlyoverPegoutStatus {
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+}
+
 export const LEDGER_STATUS_CODES = {
   TRANSACTION_CANCELLED_BY_USER: 27013,
   DEVICE_LOCKED: 27010,
@@ -229,12 +261,12 @@ export const SUPPORTED_NETWORKS = {
   RSK_MAINNET: {
     chainId: 30,
     rpcUrl: 'https://public-node.rsk.co',
-    explorerUrl: 'https://explorer.rsk.co',
+    explorerUrl: 'https://explorer.rootstock.io/',
   },
   RSK_TESTNET: {
     chainId: 31,
     rpcUrl: 'https://public-node.testnet.rsk.co',
-    explorerUrl: 'https://explorer.testnet.rsk.co',
+    explorerUrl: 'https://explorer.testnet.rootstock.io/',
   },
 };
 
@@ -274,3 +306,6 @@ export const MAINNET_ADDRESS_NSEGWIT = '^[bc1][0-9A-HJ-NP-Za-z]{41,62}';
 export const POWPEG_RSKT_HEADER = '52534b5401';
 export const PEGIN_OUTPUTS = 3;
 export const COOKIE_EXPIRATION_HOURS = 12;
+
+export const POWPEG = 'powpeg';
+export const FLYOVER = 'flyover';

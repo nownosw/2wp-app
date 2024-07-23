@@ -29,16 +29,16 @@ export default class LedgerService extends WalletService {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  name(): string {
-    return constants.WALLET_NAMES.LEDGER.short_name;
+  name() {
+    return constants.WALLET_NAMES.LEDGER;
   }
 
   // eslint-disable-next-line class-methods-use-this
   confirmationSteps(): Step[] {
     return [
       {
-        title: 'Confirm your transaction',
-        subtitle: 'Please check your Trezor device',
+        title: 'Confirm transaction',
+        subtitle: 'Please check your Ledger device',
         outputsToshow: {
           opReturn: {
             value: true,
@@ -54,6 +54,7 @@ export default class LedgerService extends WalletService {
           },
         },
         fee: false,
+        fullAmount: false,
       },
       {
         title: 'Confirm funds transfer',
@@ -73,6 +74,7 @@ export default class LedgerService extends WalletService {
           },
         },
         fee: false,
+        fullAmount: false,
       },
       {
         title: 'Confirm change address',
@@ -92,10 +94,11 @@ export default class LedgerService extends WalletService {
           },
         },
         fee: false,
+        fullAmount: false,
       },
       {
         title: 'Confirm transaction fee',
-        subtitle: 'Really send',
+        subtitle: 'Confirm transaction',
         outputsToshow: {
           opReturn: {
             value: false,
@@ -107,10 +110,11 @@ export default class LedgerService extends WalletService {
           },
           federation: {
             address: false,
-            amount: true,
+            amount: false,
           },
         },
         fee: true,
+        fullAmount: false,
       },
     ];
   }
