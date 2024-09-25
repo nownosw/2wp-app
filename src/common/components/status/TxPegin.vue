@@ -1,148 +1,22 @@
 <template>
-  <v-col>
-    <v-container fluid class="pa-0 mb-1 mt-7 max-width">
-      <v-row justify="center" class="mt-6">
-        <v-col class="ma-0 pa-0" cols="7">
-           <!-- isReject -->
-          <v-row v-if="isRejected" class="mx-0 d-flex justify-center progress-bar">
-            <v-col cols="8" class="pa-0 d-flex justify-center">
-              <v-row>
-                <div class="rsk-icon-green">
-                  <v-row>
-                    <v-img class="icon-status-image
-                      icon-rootstock-image-reject
-                      icon-status-border-yellow d-flex justify-center"
-                      :src="require('@/assets/status/rootstock.png')" height="78" contain/>
-                  </v-row>
-                  <v-row class="mt-4">
-                    <h1>{{environmentContext.getRskText()}} Network</h1>
-                  </v-row>
-                </div>
-                <v-progress-linear
-                  :model-value="btcConfirmationsPercentage"
-                  color="#F6C61B"
-                  height="19"/>
-                <div class="d-flex justify-end">
-                  <div class="bitcoin-icon-yellow">
-                    <v-row>
-                      <v-img class="icon-status-image
-                        icon-btc-image-reject
-                        icon-status-border-yellow d-flex justify-center"
-                        :src="require('@/assets/status/btc.png')" height="78" contain/>
-                    </v-row>
-                    <v-row class="mt-4">
-                      <h1>Refund {{environmentContext.getBtcText()}} address</h1>
-                    </v-row>
-                  </div>
-                </div>
-              </v-row>
-            </v-col>
-          </v-row>
-
-          <!-- success -->
-          <v-row v-else class="mx-0 progress-bar">
-            <v-col  cols="8" class="pa-0">
-              <div class="d-flex justify-start">
-                <div class="bitcoin-icon-green">
-                  <v-row>
-                    <v-img
-                      class="d-flex justify-center icon-status-image"
-                      :class="[isMainnet ? 'icon-btc-image-main' : 'icon-btc-image',
-                      bordersStyle.btc]"
-                      :src="require('@/assets/status/btc.png')" height="78" contain/>
-                  </v-row>
-                  <v-row class="pt-6">
-                    <v-col>
-                      <h1>{{environmentContext.getBtcText()}} Network</h1>
-                    </v-col>
-                  </v-row>
-                </div>
-              </div>
-
-              <v-progress-linear
-                class="progress-bar-status_new"
-                :model-value="btcConfirmationsPercentage"
-                :color="currentBtcBarColor"
-                height="19" />
-
-                <div v-bind:class="`btc-circle ${btcCircleColor}`"></div>
-              <v-row v-if="!btcConfirmationsAreDone" justify="center" class="mt-3 pa-0">
-                <h5>
-                  {{btcConfirmations}}/{{btcConfirmationsRequired}} confirmations
-                </h5>
-                <v-tooltip>
-                  <template v-slot:activator="{props}">
-                    <v-icon size="x-small" v-bind="props" :icon="mdiInformation">
-                    </v-icon>
-                  </template>
-                  <p class="tooltip-form mb-0">
-                    The estimated time is calculated based on a 10-minute block time.
-                  </p>
-                </v-tooltip>
-              </v-row>
-              <v-row v-if="!btcConfirmationsAreDone" justify="center" class="mt-4 pa-0">
-                <h5>
-                  Estimated time left: {{leftBtcTime}} hours
-                </h5>
-              </v-row>
-            </v-col>
-            <v-col cols="auto" class="pa-0 d-flex justify-center">
-              <div class="img-progress-bar">
-                <v-row>
-                  <v-img v-bind:class="bordersStyle.rootstock"
-                    class="icon-status-image icon-rootstock-image d-flex justify-center"
-                    :src="require('@/assets/status/rootstock.png')" height="78" contain/>
-                </v-row>
-                <v-row class="pt-6">
-                  <h1>{{environmentContext.getRskText()}} Network</h1>
-                </v-row>
-              </div>
-            </v-col>
-            <v-col class="confirm-percentage pa-0">
-              <v-row class="ma-0">
-                <v-progress-linear
-                class="progress-bar-status_new"
-                :model-value="rskConfirmationsPercentage"
-                :color="currentRskBarColor"
-                height="19"/>
-                <div v-bind:class="`rsk-circle ${rskCircleColor}`"></div>
-
-                <v-row justify="center" class="mt-3 mx-0 pa-0 mb-0 confirmations-message" >
-                  <h6 v-if="!rskConfirmationsAreDone">
-                    Usually takes around 20 minutes
-                  </h6>
-                </v-row>
-
-                <div class="d-flex justify-end pa-0 ma-0">
-                  <div class="rbtc-icon-green">
-                    <v-row>
-                      <v-img
-                        class="icon-status-image d-flex justify-center"
-                        :class="[isMainnet ? 'icon-rbtc-image-main' : 'icon-rbtc-image',
-                         bordersStyle.rbtc]"
-                        :src="require('@/assets/status/rbtc.png')" height="78" contain/>
-                    </v-row>
-                    <v-row class="justify-center pt-10">
-                      <h1>
-                      {{environmentContext.getRbtcTicker()}} delivered
-                      </h1>
-                    </v-row>
-                  </div>
-                </div>
-              </v-row>
-            </v-col>
-          </v-row>
-        </v-col>
+  <v-container>
+    <template v-if="showConfirmations">
+      <v-row class="justify-space-around">
+        <span class="text-center text-bw-400 text-body-2">
+          {{ btcConfirmations }} / {{ btcConfirmationsRequired }}
+        </span>
       </v-row>
-    </v-container>
-    <v-row class="pt-4 mt-12">
-      <tx-summary-fixed
-        :summary="txPeginSummary"
-        :initialExpand="true"
-        :type="typeSummary"
-        :orientation="orientationSummary"/>
+      <v-row class="justify-space-around">
+        <span class="text-center text-bw-400 text-body-2">Confirmations</span>
+      </v-row>
+    </template>
+    <v-row>
+      <status-progress-bar :isFlyover="isFlyover" :txWithErrorType="txWithErrorType"
+                           :txWithError="txWithError" />
     </v-row>
-  </v-col>
+    <status-summary :details="summary" :type="typeSummary" :txWithErrorType="txWithErrorType"
+                    :txWithError="txWithError" />
+  </v-container>
 </template>
 
 <script lang="ts">
@@ -153,22 +27,32 @@ import { mdiInformation } from '@mdi/js';
 import {
   PeginStatus,
   SatoshiBig,
-  TxStatusType, TxSummaryOrientation, NormalizedSummary, TxStatusMessage,
+  TxStatusType,
+  TxSummaryOrientation,
+  NormalizedSummary,
+  TxStatusMessage,
+  FlyoverStatusModel,
 } from '@/common/types';
 import EnvironmentContextProviderService from '@/common/providers/EnvironmentContextProvider';
 import * as constants from '@/common/store/constants';
 import { getTime, setStatusMessage } from '@/common/utils';
 import { useAction, useGetter, useStateAttribute } from '@/common/store/helper';
-import TxSummaryFixed from '@/common/components/exchange/TxSummaryFixed.vue';
+import StatusProgressBar from '@/common/components/status/StatusProgressBar.vue';
 import { EnvironmentAccessorService } from '@/common/services/enviroment-accessor.service';
+import StatusSummary from '@/common/components/status/StatusSummary.vue';
+import { PegStatus } from '@/common/store/constants';
 
 export default defineComponent({
   name: 'TxPegin',
   components: {
-    TxSummaryFixed,
+    StatusSummary,
+    StatusProgressBar,
   },
   props: {
     txId: String,
+    isFlyover: Boolean,
+    txWithErrorType: Boolean,
+    txWithError: Boolean,
   },
   setup(props, context) {
     const currentFee = ref(new SatoshiBig('0', 'btc'));
@@ -208,11 +92,11 @@ export default defineComponent({
       rbtc: borderColor.gray,
     });
 
-    const typeSummary = TxStatusType.PEGIN;
+    const typeSummary = props.isFlyover ? TxStatusType.FLYOVER_PEGIN : TxStatusType.PEGIN;
     const orientationSummary = TxSummaryOrientation.HORIZONTAL;
     const environmentContext = EnvironmentContextProviderService.getEnvironmentContext();
 
-    const txDetails = useStateAttribute<PeginStatus>('status', 'txDetails');
+    const txDetails = useStateAttribute<PeginStatus | FlyoverStatusModel>('status', 'txDetails');
     const isRejected = useGetter<boolean>('status', constants.STATUS_IS_REJECTED);
     const setAmount = useAction('pegInTx', constants.PEGIN_TX_ADD_AMOUNT_TO_TRANSFER);
     const peginInit = useAction('pegInTx', constants.PEGIN_TX_INIT);
@@ -230,7 +114,9 @@ export default defineComponent({
       === constants.BTC_NETWORK_MAINNET);
 
     const txPeginSummary = computed((): NormalizedSummary => {
-      const status = txDetails.value;
+      const status = txDetails.value as PeginStatus;
+      const total = new SatoshiBig(status.btc.amountTransferred, 'btc')
+        .plus(new SatoshiBig(status.btc.fees, 'btc'));
       return {
         amountFromString: status.btc.amountTransferred.toString(),
         amountReceivedString: status.btc.amountTransferred.toString(),
@@ -239,53 +125,77 @@ export default defineComponent({
         txId: status.btc.txId,
         refundAddress: status.btc.refundAddress,
         federationAddress: status.btc.federationAddress,
+        total: total.toBTCTrimmedString(),
+        senderAddress: status.btc.senderAddress,
+        status: status.status,
       };
     });
 
+    const flyoverPeginSummary = computed((): NormalizedSummary => {
+      const status = txDetails.value as FlyoverStatusModel;
+      const total = new SatoshiBig(status.amount, 'btc')
+        .plus(new SatoshiBig(status.fee, 'btc'));
+      return {
+        amountFromString: status.amount.toString(),
+        amountReceivedString: status.amount.toString(),
+        total: total.toBTCTrimmedString(),
+        fee: status.fee,
+        recipientAddress: status.recipientAddress,
+        senderAddress: status.senderAddress,
+        txId: status.txHash,
+      };
+    });
+
+    const summary = computed(() => (props.isFlyover
+      ? flyoverPeginSummary.value
+      : txPeginSummary.value));
+
+    const showConfirmations = computed(() => !props.isFlyover
+      && txDetails.value.status === PegStatus.WAITING_CONFIRMATIONS);
+
     function refreshPercentage() {
-      if (txDetails) {
+      if ('btc' in txDetails.value) {
         const { btc } = txDetails.value;
         btcConfirmationsRequired.value = btc.requiredConfirmation;
         btcConfirmations.value = btc.confirmations ?? 0;
         btcConfirmations.value = btcConfirmations.value > btcConfirmationsRequired.value
           ? btcConfirmationsRequired.value : btcConfirmations.value;
-      }
-      leftBtcTime.value = getTime((btcConfirmationsRequired.value - btcConfirmations.value) * 10);
-      btcConfirmationsPercentage.value = btcConfirmations.value <= btcConfirmationsRequired.value
-        ? (btcConfirmations.value * 100) / btcConfirmationsRequired.value : 100;
-      if (txDetails.value.status === constants.PegStatus.CONFIRMED) {
-        rskConfirmationsPercentage.value = 100;
-      } else {
-        rskConfirmationsPercentage.value = 0;
+        leftBtcTime.value = getTime((btcConfirmationsRequired.value - btcConfirmations.value) * 10);
+        btcConfirmationsPercentage.value = btcConfirmations.value <= btcConfirmationsRequired.value
+          ? (btcConfirmations.value * 100) / btcConfirmationsRequired.value : 100;
+        if (txDetails.value.status === constants.PegStatus.CONFIRMED) {
+          rskConfirmationsPercentage.value = 100;
+        } else {
+          rskConfirmationsPercentage.value = 0;
+        }
       }
     }
 
     function setSummaryData() {
-      const { btc, rsk } = txDetails.value;
-      const txData = {
-        amount: new SatoshiBig(btc.amountTransferred, 'btc'),
-        refundAddress: btc.refundAddress,
-        recipient: rsk.recipientAddress ? rsk.recipientAddress : '',
-        feeBTC: new SatoshiBig(btc.fees, 'btc'),
-        change: '',
-      };
-      peginInit();
-      setAmount(txData.amount);
-      currentFee.value = txData.feeBTC;
-      currentRefundAddress.value = txData.refundAddress;
-      setRskAddress(txData.recipient);
+      if ('btc' in txDetails.value) {
+        const { btc, rsk } = txDetails.value;
+        const txData = {
+          amount: new SatoshiBig(btc.amountTransferred, 'btc'),
+          refundAddress: btc.refundAddress,
+          recipient: rsk.recipientAddress ? rsk.recipientAddress : '',
+          feeBTC: new SatoshiBig(btc.fees, 'btc'),
+          change: '',
+        };
+        peginInit();
+        setAmount(txData.amount);
+        currentFee.value = txData.feeBTC;
+        currentRefundAddress.value = txData.refundAddress;
+        setRskAddress(txData.recipient);
+      }
     }
 
     function setMessage() {
-      try {
-        let msg: TxStatusMessage | string = '';
-        if (txDetails) {
-          msg = setStatusMessage(TxStatusType.PEGIN, txDetails.value.status);
-        }
-        context.emit('setMessage', msg);
-      } catch (e) {
-        console.log(e);
+      let msg: TxStatusMessage | string = '';
+      if (txDetails.value) {
+        const type = props.isFlyover ? TxStatusType.FLYOVER_PEGIN : TxStatusType.PEGIN;
+        msg = setStatusMessage(type, txDetails.value.status);
       }
+      context.emit('setMessage', msg);
     }
 
     function setProgressColor() {
@@ -361,12 +271,13 @@ export default defineComponent({
       typeSummary,
       orientationSummary,
       environmentContext,
-      txPeginSummary,
+      summary,
       btcConfirmationsAreDone,
       rskConfirmationsAreDone,
       isRejected,
       mdiInformation,
       isMainnet,
+      showConfirmations,
     };
   },
 });

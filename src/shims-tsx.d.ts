@@ -1,4 +1,5 @@
 import Vue, { VNode } from 'vue';
+import { LeatherProvider } from '@leather.io/rpc';
 
 declare global {
   namespace JSX {
@@ -17,5 +18,14 @@ declare global {
     on(eventName: string, cb: () => never);
     isMetamask: boolean;
   }
-  interface Window { ethereum: Ethereum }
+  interface Window {
+    ethereum: Ethereum,
+    LeatherProvider?: LeatherProvider,
+    grecaptcha: {
+      ready: (cb: () => void) => void,
+      execute: () => Promise<string>,
+      getResponse: () => string,
+    },
+    onRecaptchaSuccess: () => Promise<void>,
+  }
 }

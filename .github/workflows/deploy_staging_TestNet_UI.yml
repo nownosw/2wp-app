@@ -8,6 +8,11 @@ on:
 jobs:
   checkout-and-build:
     runs-on: ubuntu-latest
+    environment: staging-testnet
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       - name: Get tag name.
         id: get_tag_name
@@ -16,7 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          ref: qa 
+          ref: qa
 
       - name: Setup NodeJS
         uses: actions/setup-node@v3
@@ -33,7 +38,7 @@ jobs:
           VUE_APP_MANIFEST_EMAIL='user@rsk.co'
           VUE_APP_HOTJAR_ID=${{ secrets.STAGING_TESTNET_VUE_APP_HOTJAR_ID }}
           VUE_APP_CLARITY_ID=${{ secrets.STAGING_TESTNET_VUE_APP_CLARITY_ID }}
-          VUE_APP_MANIFEST_APP_URL='https://app.2wp.staging-testnet.rootstock.io'
+          VUE_APP_MANIFEST_APP_URL='https://powpeg.staging-testnet.rootstock.io'
           VUE_APP_API_BASE_URL='https://api.2wp.staging-testnet.rootstock.io'
           VUE_APP_RSK_NODE_HOST='https://public-node.testnet.rsk.co'
           VUE_APP_RSK_EXPLORER='https://explorer.testnet.rootstock.io/'
@@ -41,14 +46,15 @@ jobs:
           VUE_APP_WALLET_ADDRESS_PER_CALL=20
           VUE_APP_PEGOUT_MIN_AMOUNT_ALLOWED_IN_RBTC=0.004
           VUE_APP_PEGOUT_MAX_AMOUNT_ALLOWED_IN_RBTC=10
+          VUE_APP_PEGIN_MIN_AMOUNT_ALLOWED_IN_BTC=0.005
+          VUE_APP_PEGIN_MAX_AMOUNT_ALLOWED_IN_BTC=10
           VUE_APP_LBC_ADDRESS='0xc2A630c053D12D63d32b025082f6Ba268db18300'
           npm run-script build
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.STAGING_TESTNET_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.STAGING_TESTNET_AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.STAGING_TESTNET_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Deploy site to S3

@@ -3,10 +3,12 @@ import { PegStatus } from '@/common/store/constants';
 import SatoshiBig from '@/common/types/SatoshiBig';
 import { PegInTxState } from '@/common/types/pegInTx';
 import { SessionState } from '@/common/types/session';
+import { PegOutTxState } from './pegOutTx';
 
 export interface RootState {
   pegInTx?: PegInTxState,
   web3Session?: SessionState,
+  pegOutTx?: PegOutTxState,
   version: string;
 }
 
@@ -19,12 +21,20 @@ export interface BtcPeginStatus {
   confirmations: number;
   requiredConfirmation: number;
   fees: number;
+  senderAddress: string;
+}
+
+export enum RskStatus {
+  LOCKED = 'LOCKED',
+  REJECTED_NO_REFUND = 'REJECTED_NO_REFUND',
+  REJECTED_REFUND = 'REJECTED_REFUND',
 }
 
 export interface RskPeginStatus {
   recipientAddress: string;
   confirmations: number;
   createOn: Date;
+  status: RskStatus;
 }
 
 export interface PeginStatus {
@@ -81,7 +91,7 @@ export enum TxStatusType {
 }
 
 export interface TxStatus {
-  txDetails?: PeginStatus | PegoutStatusDataModel;
+  txDetails?: PeginStatus | PegoutStatusDataModel | FlyoverStatusModel;
   type: TxStatusType;
   pegOutEstimatedFee: SatoshiBig;
   estimatedReleaseTimeInMinutes: Duration;

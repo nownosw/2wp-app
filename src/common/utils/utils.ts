@@ -56,6 +56,23 @@ export function getBtcAddressExplorerUrl(address: string) {
   return `${getBtcBaseExplorerUrl()}/address/${address}`;
 }
 
+export function getRskBaseExplorerUrl() {
+  let network = '';
+  if (EnvironmentAccessorService
+    .getEnvironmentVariables().vueAppCoin === constants.BTC_NETWORK_TESTNET) {
+    network = '.testnet';
+  }
+  return `https://explorer${network}.rootstock.io`;
+}
+
+export function getRskTxExplorerUrl(txId: string) {
+  return `${getRskBaseExplorerUrl()}/tx/${txId}`;
+}
+
+export function getRskAddressExplorerUrl(address: string) {
+  return `${getRskBaseExplorerUrl()}/address/${address}`;
+}
+
 export function getEstimatedFee(): Promise<SatoshiBig> {
   return new Promise<SatoshiBig>((resolve, reject) => {
     const bridgeService = new BridgeService();
@@ -64,7 +81,7 @@ export function getEstimatedFee(): Promise<SatoshiBig> {
       bridgeService.getQueuedPegoutsCount(),
     ])
       .then(([nextPegoutCost, pegoutQueueCount]) => {
-        const estimatedFee = nextPegoutCost / (pegoutQueueCount + 1);
+        const estimatedFee = nextPegoutCost / (pegoutQueueCount + 1n);
         resolve(new SatoshiBig(estimatedFee, 'satoshi'));
       })
       .catch(reject);
@@ -87,16 +104,16 @@ export class Machine<States extends string> {
   }
 }
 
-export function getMainLogo() {
-  // eslint-disable-next-line global-require
-  return require('@/assets/logo-rootstock-black.png');
-}
-
 export function getTime(totalMinutes: number): string {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   const paddedMinutes = minutes < 10 ? `0${minutes}` : minutes;
   return `${hours}:${paddedMinutes}`;
+}
+
+export function isMobileDevice() {
+  const platform = Bowser.getParser(window.navigator.userAgent).getPlatformType(true);
+  return platform === 'mobile';
 }
 
 export function isAllowedCurrentBrowser() {
@@ -170,14 +187,29 @@ export function setStatusMessage(txType: string, status: string): TxStatusMessag
         default:
       }
       break;
+    case TxStatusType.FLYOVER_PEGIN:
+      switch (status) {
+        case constants.FlyoverStatus.PENDING:
+          statusMessage = 'Your peg-in is being processed';
+          activeMessageStyle = 'statusProgress';
+          isRejected = false;
+          break;
+        case constants.FlyoverStatus.COMPLETED:
+          statusMessage = 'Your transaction was successfully processed!';
+          activeMessageStyle = 'statusSuccess';
+          isRejected = false;
+          break;
+        default:
+      }
+      break;
     case TxStatusType.FLYOVER_PEGOUT:
       switch (status) {
-        case constants.FlyoverPegoutStatus.PENDING:
+        case constants.FlyoverStatus.PENDING:
           statusMessage = 'Your peg-out is being processed';
           activeMessageStyle = 'statusProgress';
           isRejected = false;
           break;
-        case constants.FlyoverPegoutStatus.COMPLETED:
+        case constants.FlyoverStatus.COMPLETED:
           statusMessage = 'Your transaction was successfully processed!';
           activeMessageStyle = 'statusSuccess';
           isRejected = false;
@@ -240,7 +272,7 @@ export function setStatusMessage(txType: string, status: string): TxStatusMessag
     case TxStatusType.INVALID_DATA:
       activeMessageStyle = 'statusRejected';
       error = true;
-      errorMessage = 'The hash does not match any 2wp operation.';
+      errorMessage = 'The hash does not match any PowPeg operation.';
       break;
     case TxStatusType.UNSET_STATUS:
       activeMessageStyle = 'statusProgress';
@@ -299,16 +331,20 @@ export function getCookie(cname: string) {
   return cookieValue;
 }
 
-export function setCookie(cookieName: string, cookieValue: number, expirationHours: number) {
+export function setCookie(
+  cookieName: string,
+  cookieValue: number | string,
+  expirationHours: number,
+) {
   const d = new Date();
   d.setTime(d.getTime() + (expirationHours * 60 * 60 * 1000));
   const expires = `expires=${d.toUTCString()}`;
   document.cookie = `${cookieName}=${cookieValue};${expires};path=/`;
 }
 
-export function blockConfirmationsToTimeString(confirmations: number): string {
-  const BLOCK_CONFIRMATION_TIME_IN_MINUTES = 10;
-  return moment.duration(confirmations * BLOCK_CONFIRMATION_TIME_IN_MINUTES, 'minutes').humanize(false, { h: 34 });
+export function blockConfirmationsToTimeString(confirmations: number, chain: 'btc' | 'rsk' = 'rsk'): string {
+  const timeInSeconds = chain === 'btc' ? constants.BTC_AVG_BLOCK_TIME_IN_SECONDS : constants.RSK_AVG_BLOCK_TIME_IN_SECONDS;
+  return moment.duration(confirmations * timeInSeconds, 'seconds').humanize(false, { h: 34 });
 }
 
 export function awaitTimeout(ms: number) {
@@ -322,4 +358,44 @@ export function awaitTimeout(ms: number) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function promiseWithTimeout(promise: Promise<any>, timeoutMs: number) {
   return Promise.race([promise, awaitTimeout(timeoutMs)]);
+}
+
+export function truncateString(str: string) {
+  if (!str) return '';
+  return `${str.slice(0, 6)}...${str.slice(-4)}`;
+}
+
+export function truncateStringToSize(str: string, size: number) {
+  if (!str) return '';
+  if (str.length <= size) return str;
+  return `${str.slice(0, size / 2)}...${str.slice(-size / 2)}`;
+}
+
+export function copyToClipboard(value: string) {
+  navigator.clipboard.writeText(value);
+}
+
+export function isValidSiteKey(siteKey: string): boolean {
+  const siteKeyPattern = /^[A-Za-z0-9_-]+$/;
+  return siteKeyPattern.test(siteKey);
+}
+
+export function appendRecaptcha(siteKey: string): void {
+  if (!isValidSiteKey(siteKey)) {
+    return;
+  }
+  const scriptTag = document.createElement('script');
+  scriptTag.type = 'text/javascript';
+  scriptTag.async = true;
+  scriptTag.defer = true;
+  scriptTag.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
+  document.head.appendChild(scriptTag);
+  const captchaDiv = document.createElement('div');
+  captchaDiv.id = 'recaptcha';
+  captchaDiv.className = 'g-recaptcha';
+  captchaDiv.setAttribute('data-sitekey', siteKey);
+  captchaDiv.setAttribute('data-callback', 'onRecaptchaSuccess');
+  captchaDiv.setAttribute('data-action', 'submit');
+  captchaDiv.setAttribute('data-size', 'invisible');
+  document.body.appendChild(captchaDiv);
 }
